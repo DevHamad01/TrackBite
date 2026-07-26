@@ -1,0 +1,6 @@
+{
+  "name": "TrackBite",
+  "description": "AI-powered meal, workout & calorie tracker with multi-modal inputs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
