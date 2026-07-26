@@ -43,6 +43,7 @@ fun TopAppBarZone(
     onDateToggleClick: () -> Unit,
     onResetTodayClick: () -> Unit,
     onShareClick: () -> Unit,
+    onStreakClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -104,6 +105,7 @@ fun TopAppBarZone(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
                     .background(GreenPrimaryContainer)
+                    .clickable { onStreakClick?.invoke() }
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

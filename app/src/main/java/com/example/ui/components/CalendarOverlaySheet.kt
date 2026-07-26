@@ -54,12 +54,24 @@ fun CalendarOverlaySheet(
     isVisible: Boolean,
     selectedDateStr: String,
     selectedMonthStr: String,
+    todayDateStr: String = "26 Jul 2026",
     loggedDatesSet: Set<String> = emptySet(),
     onMonthSelect: (String) -> Unit,
     onDaySelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var activeYear by remember { mutableIntStateOf(2026) }
+    val monthMap = mapOf(
+        "Jan" to 0, "Feb" to 1, "Mar" to 2, "Apr" to 3,
+        "May" to 4, "Jun" to 5, "Jul" to 6, "Aug" to 7,
+        "Sep" to 8, "Oct" to 9, "Nov" to 10, "Dec" to 11
+    )
+
+    val parts = todayDateStr.split(" ")
+    val todayMonthName = parts.getOrNull(1) ?: "Jul"
+    val todayYear = parts.getOrNull(2)?.toIntOrNull() ?: 2026
+    val todayMonthIdx = monthMap[todayMonthName] ?: 6
+
+    var activeYear by remember(todayYear) { mutableIntStateOf(todayYear) }
     val scrollState = rememberScrollState()
 
     LaunchedEffect(isVisible) {
@@ -117,7 +129,7 @@ fun CalendarOverlaySheet(
                         } else {
                             val dayInt = dayNum.toIntOrNull() ?: 1
                             val dateFormatted = "$dayNum $selectedMonthStr $activeYear"
-                            val isFuture = isFutureDate(dayInt, selectedMonthStr, activeYear, "28 Mar 2026")
+                            val isFuture = isFutureDate(dayInt, selectedMonthStr, activeYear, todayDateStr)
                             val isSelected = selectedDateStr == dateFormatted
                             val hasMeal = loggedDatesSet.contains(dateFormatted)
                             val isHighlighted = !isFuture && (isSelected || hasMeal)
@@ -160,24 +172,22 @@ fun CalendarOverlaySheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Quick Month Selector Bar (Past Months Up To Current Month with Year Breaks)
-            val monthEntries = remember {
+            val monthEntries = remember(todayDateStr) {
                 val list = mutableListOf<MonthBarEntry>()
                 val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
-                // Historical years 2023..2025
-                for (year in 2023..2025) {
-                    if (year > 2023) {
-                        list.add(MonthBarEntry.YearLabel(year.toString()))
-                    }
+                // Historical years 2023..(todayYear - 1)
+                for (year in 2023 until todayYear) {
+                    list.add(MonthBarEntry.YearLabel(year.toString()))
                     for (m in months) {
                         list.add(MonthBarEntry.Month(m, year))
                     }
                 }
 
-                // Current Year 2026 up to current month (Mar 2026)
-                list.add(MonthBarEntry.YearLabel("2026"))
-                for (m in listOf("Jan", "Feb", "Mar")) {
-                    list.add(MonthBarEntry.Month(m, 2026))
+                // Current Year up to current month
+                list.add(MonthBarEntry.YearLabel(todayYear.toString()))
+                for (i in 0..todayMonthIdx) {
+                    list.add(MonthBarEntry.Month(months[i], todayYear))
                 }
 
                 list

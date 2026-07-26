@@ -43,11 +43,10 @@ fun DateSelectorStrip(
     ) {
         dates.forEach { dateItem ->
             val isSelected = dateItem.isSelected
-            val isHighlighted = isSelected || dateItem.hasMealEntries
 
-            val backgroundColor = if (isHighlighted) GreenActivePill else Color.Transparent
-            val borderColor = if (isSelected) GreenPrimary else if (dateItem.hasMealEntries) Color(0xFFC4E5C6) else Color.Transparent
-            val textColor = if (isHighlighted) GreenPrimary else TextSecondary
+            val backgroundColor = if (isSelected) GreenActivePill else Color.Transparent
+            val borderColor = if (isSelected) GreenPrimary else Color.Transparent
+            val textColor = if (isSelected) GreenPrimary else TextSecondary
 
             Column(
                 modifier = Modifier
@@ -55,7 +54,7 @@ fun DateSelectorStrip(
                     .clip(RoundedCornerShape(10.dp))
                     .background(backgroundColor)
                     .border(
-                        width = if (isHighlighted) 1.dp else 0.dp,
+                        width = if (isSelected) 1.dp else 0.dp,
                         color = borderColor,
                         shape = RoundedCornerShape(10.dp)
                     )
@@ -72,8 +71,8 @@ fun DateSelectorStrip(
                 Text(
                     text = dateItem.dayOfMonth,
                     fontSize = 13.sp,
-                    fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isHighlighted) GreenPrimary else TextSecondary,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = textColor,
                     modifier = Modifier.padding(top = 1.dp)
                 )
             }

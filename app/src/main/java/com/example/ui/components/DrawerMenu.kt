@@ -15,14 +15,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Feedback
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
@@ -38,17 +38,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.UserProfile
 import com.example.ui.theme.CardBorder
-import com.example.ui.theme.GreenPrimary
-import com.example.ui.theme.GreenPrimaryContainer
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 @Composable
 fun DrawerMenu(
     userProfile: UserProfile,
     onCloseDrawer: () -> Unit,
     onUpgradeClick: () -> Unit,
+    onNavigateToDailyGoals: () -> Unit = {},
+    onNavigateToWeeklySummary: () -> Unit = {},
+    onNavigateToWeightTracker: () -> Unit = {},
+    onNavigateToReminders: () -> Unit = {},
+    onNavigateToAccount: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToStreak: () -> Unit = {},
+    onNavigateToWaterTracker: () -> Unit = {},
+    onFeedbackClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     ModalDrawerSheet(
@@ -58,110 +64,116 @@ fun DrawerMenu(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .padding(20.dp)
+                .padding(top = 28.dp, bottom = 20.dp, start = 20.dp, end = 20.dp)
         ) {
-            // User Header
+            // App Header (TrackBite Logo + Title)
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Blue TrackBite Icon
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(GreenPrimaryContainer),
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1E88E5)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "User Avatar",
-                        tint = GreenPrimary,
-                        modifier = Modifier.size(28.dp)
+                        imageVector = Icons.Default.BarChart,
+                        contentDescription = "TrackBite Logo",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "TrackBite User",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = "Goal: ${userProfile.targetCalories} kcal/day",
-                        fontSize = 13.sp,
-                        color = TextSecondary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Premium Banner Card inside Drawer
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFFE3F2FD))
-                    .clickable { onUpgradeClick() }
-                    .padding(14.dp)
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = "Premium Star",
-                            tint = Color(0xFF1976D2),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "TrackBite Premium",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1565C0)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Unlimited AI Meal & Workout Scans, Custom Macro Goals & Analytics.",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = "TrackBite",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider(color = CardBorder, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Navigation Items
+            // Navigation Items matching Journable Reference
             DrawerMenuItem(
-                icon = Icons.Default.FlashOn,
-                title = "Streak Tracker (${userProfile.streakCount} Days)",
-                onClick = onCloseDrawer
+                icon = Icons.Default.Flag,
+                title = "Daily Goals",
+                onClick = {
+                    onCloseDrawer()
+                    onNavigateToDailyGoals()
+                }
             )
 
             DrawerMenuItem(
                 icon = Icons.Default.BarChart,
-                title = "Nutrition Analytics",
-                onClick = onCloseDrawer
+                title = "Weekly Summary",
+                onClick = {
+                    onCloseDrawer()
+                    onNavigateToWeeklySummary()
+                }
             )
 
             DrawerMenuItem(
-                icon = Icons.Default.EmojiEvents,
-                title = "Weekly & Monthly Goals",
-                onClick = onCloseDrawer
+                icon = Icons.Default.MonitorWeight,
+                title = "Weight Tracker",
+                onClick = {
+                    onCloseDrawer()
+                    onNavigateToWeightTracker()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.Notifications,
+                title = "Reminders",
+                onClick = {
+                    onCloseDrawer()
+                    onNavigateToReminders()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.WaterDrop,
+                title = "Water Tracker",
+                onClick = {
+                    onCloseDrawer()
+                    onNavigateToWaterTracker()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.Person,
+                title = "Account",
+                onClick = {
+                    onCloseDrawer()
+                    onNavigateToAccount()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.Feedback,
+                title = "Feedback & Support",
+                onClick = {
+                    onCloseDrawer()
+                    onFeedbackClick()
+                }
             )
 
             DrawerMenuItem(
                 icon = Icons.Default.Settings,
-                title = "App Settings",
-                onClick = onCloseDrawer
+                title = "Settings",
+                onClick = {
+                    onCloseDrawer()
+                    onNavigateToSettings()
+                }
             )
 
             DrawerMenuItem(
-                icon = Icons.Default.Info,
-                title = "About TrackBite",
+                icon = Icons.Default.ExitToApp,
+                title = "Logout",
                 onClick = onCloseDrawer
             )
 
@@ -200,7 +212,7 @@ private fun DrawerMenuItem(
         Text(
             text = title,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
             color = TextPrimary
         )
     }

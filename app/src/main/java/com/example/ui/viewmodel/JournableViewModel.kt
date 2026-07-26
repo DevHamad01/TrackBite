@@ -54,6 +54,24 @@ data class SummaryMetrics(
     val targetFatGrams: Int = 71
 )
 
+enum class AppScreen {
+    DASHBOARD,
+    DAILY_GOALS,
+    GOAL_CALCULATOR,
+    WEEKLY_SUMMARY,
+    WEIGHT_TRACKER,
+    STREAK,
+    ACCOUNT,
+    REMINDERS,
+    SETTINGS,
+    SETTINGS_LIQUID_UNIT,
+    SETTINGS_WEIGHT_UNIT,
+    SETTINGS_FIRST_DAY,
+    SETTINGS_NOTIFICATIONS,
+    SETTINGS_TERMS_PRIVACY,
+    WATER_TRACKER
+}
+
 class JournableViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getInstance(application)
@@ -70,18 +88,25 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     private val dayNumFormatter = SimpleDateFormat("dd", Locale.US)
     private val timeFormatter = SimpleDateFormat("HH:mm", Locale.US)
 
-    val todayDateStr: String = "28 Mar 2026"
-    val yesterdayDateStr: String = "27 Mar 2026"
+    val todayDateStr: String = dateFormatter.format(Date())
+    val yesterdayDateStr: String = dateFormatter.format(Date(System.currentTimeMillis() - 86400000L))
 
-    // Current Selected Date e.g. "28 Mar 2026"
-    val selectedDate = MutableStateFlow("28 Mar 2026")
+    // Current Selected Date e.g. "26 Jul 2026"
+    val selectedDate = MutableStateFlow(todayDateStr)
+
+    // User Settings
+    val liquidUnit = MutableStateFlow("Litre (L)")
+    val weightUnit = MutableStateFlow("Kilogram (kg)")
+    val firstDayOfWeek = MutableStateFlow("Monday")
+    val isWaterTrackerEnabled = MutableStateFlow(true)
+    val waterGoalCups = MutableStateFlow("8")
 
     val loggedDatesSet: StateFlow<Set<String>> = repository.getLoggedDates()
         .map { it.toSet() }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = setOf("28 Mar 2026")
+            initialValue = setOf(todayDateStr)
         )
 
     val displayDateTitle: StateFlow<String> = selectedDate
@@ -97,6 +122,21 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = "Today"
         )
+
+    val currentScreen = MutableStateFlow(AppScreen.DASHBOARD)
+
+    fun updateUserProfileGoals(targetCalories: Int, targetCarbs: Int = 316, targetProtein: Int = 158, targetFat: Int = 71) {
+        viewModelScope.launch {
+            val current = userProfile.value
+            val updated = current.copy(
+                targetCalories = targetCalories,
+                targetCarbs = targetCarbs,
+                targetProtein = targetProtein,
+                targetFat = targetFat
+            )
+            repository.saveProfile(updated)
+        }
+    }
 
     // UI Overlay States
     val isCalendarExpanded = MutableStateFlow(false)
@@ -114,7 +154,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     val isRecordingVoice = MutableStateFlow(false)
 
     // Month Grid Filter in Calendar Sheet
-    val selectedMonth = MutableStateFlow("Mar")
+    val selectedMonth = MutableStateFlow(SimpleDateFormat("MMM", Locale.US).format(Date()))
 
     init {
         seedInitialDataIfNeeded()
@@ -122,7 +162,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun seedInitialDataIfNeeded() {
         viewModelScope.launch {
-            val date = "28 Mar 2026"
+            val date = todayDateStr
 
             // Ensure profile exists
             repository.saveProfile(
@@ -327,7 +367,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun resetToToday() {
         selectedDate.value = todayDateStr
-        selectedMonth.value = "Mar"
+        selectedMonth.value = SimpleDateFormat("MMM", Locale.US).format(Date())
         isCalendarExpanded.value = false
     }
 

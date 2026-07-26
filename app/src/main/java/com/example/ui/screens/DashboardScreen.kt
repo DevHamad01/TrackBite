@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -51,6 +53,7 @@ import com.example.ui.theme.CleanBackground
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.ui.viewmodel.AppScreen
 import com.example.ui.viewmodel.JournableViewModel
 import kotlinx.coroutines.launch
 
@@ -97,6 +100,41 @@ fun DashboardScreen(
                 onUpgradeClick = {
                     coroutineScope.launch { drawerState.close() }
                     Toast.makeText(context, "TrackBite Premium feature activated!", Toast.LENGTH_SHORT).show()
+                },
+                onNavigateToDailyGoals = {
+                    viewModel.currentScreen.value = AppScreen.DAILY_GOALS
+                },
+                onNavigateToWeeklySummary = {
+                    viewModel.currentScreen.value = AppScreen.WEEKLY_SUMMARY
+                },
+                onNavigateToWeightTracker = {
+                    viewModel.currentScreen.value = AppScreen.WEIGHT_TRACKER
+                },
+                onNavigateToReminders = {
+                    viewModel.currentScreen.value = AppScreen.REMINDERS
+                },
+                onNavigateToAccount = {
+                    viewModel.currentScreen.value = AppScreen.ACCOUNT
+                },
+                onNavigateToSettings = {
+                    viewModel.currentScreen.value = AppScreen.SETTINGS
+                },
+                onNavigateToStreak = {
+                    viewModel.currentScreen.value = AppScreen.STREAK
+                },
+                onNavigateToWaterTracker = {
+                    viewModel.currentScreen.value = AppScreen.WATER_TRACKER
+                },
+                onFeedbackClick = {
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:mh.atgsystems@gmail.com")
+                        putExtra(Intent.EXTRA_SUBJECT, "TrackBite Feedback & Support")
+                    }
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "No email client found", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
         }
@@ -116,7 +154,8 @@ fun DashboardScreen(
                         onMenuClick = { coroutineScope.launch { drawerState.open() } },
                         onDateToggleClick = { viewModel.isCalendarExpanded.value = !isCalendarExpanded },
                         onResetTodayClick = { viewModel.resetToToday() },
-                        onShareClick = { Toast.makeText(context, "Sharing daily summary...", Toast.LENGTH_SHORT).show() }
+                        onShareClick = { Toast.makeText(context, "Sharing daily summary...", Toast.LENGTH_SHORT).show() },
+                        onStreakClick = { viewModel.currentScreen.value = AppScreen.STREAK }
                     )
 
                     // Calendar Overlay Dropdown Sheet
@@ -124,6 +163,7 @@ fun DashboardScreen(
                         isVisible = isCalendarExpanded,
                         selectedDateStr = selectedDate,
                         selectedMonthStr = selectedMonth,
+                        todayDateStr = viewModel.todayDateStr,
                         loggedDatesSet = loggedDatesSet,
                         onMonthSelect = { viewModel.selectedMonth.value = it },
                         onDaySelect = { date ->

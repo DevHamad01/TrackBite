@@ -104,31 +104,6 @@ fun BottomInputBar(
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        // Top Upgrade / Status Ribbon
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (freeEntriesRemaining > 0) "$freeEntriesRemaining AI scans remaining" else "No free entries remaining",
-                fontSize = 13.sp,
-                color = TextSecondary
-            )
-
-            Text(
-                text = "Upgrade to Premium",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E88E5), // Blue accent for Upgrade link as in screenshots
-                modifier = Modifier.clickable { onUpgradeClick() }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(2.dp))
-
         // Input Box Container
         Row(
             modifier = Modifier
