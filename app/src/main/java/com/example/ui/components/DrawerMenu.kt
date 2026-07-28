@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Feedback
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Notifications
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.UserProfile
 import com.example.ui.theme.CardBorder
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 
@@ -55,6 +57,9 @@ fun DrawerMenu(
     onNavigateToStreak: () -> Unit = {},
     onNavigateToWaterTracker: () -> Unit = {},
     onFeedbackClick: () -> Unit = {},
+    onExportClick: () -> Unit = {},
+    isLoggedIn: Boolean = true,
+    onLogoutClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     ModalDrawerSheet(
@@ -70,12 +75,12 @@ fun DrawerMenu(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Blue TrackBite Icon
+                // Green TrackBite Icon
                 Box(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1E88E5)),
+                        .background(GreenPrimary),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -173,8 +178,11 @@ fun DrawerMenu(
 
             DrawerMenuItem(
                 icon = Icons.Default.ExitToApp,
-                title = "Logout",
-                onClick = onCloseDrawer
+                title = if (isLoggedIn) "Logout" else "Login",
+                onClick = {
+                    onCloseDrawer()
+                    onLogoutClick()
+                }
             )
 
             Spacer(modifier = Modifier.weight(1f))

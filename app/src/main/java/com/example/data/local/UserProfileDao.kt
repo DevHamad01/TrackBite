@@ -18,4 +18,7 @@ interface UserProfileDao {
 
     @Update
     suspend fun updateProfile(profile: UserProfile)
+
+    @Query("DELETE FROM user_profile")
+    suspend fun deleteProfile()
 }

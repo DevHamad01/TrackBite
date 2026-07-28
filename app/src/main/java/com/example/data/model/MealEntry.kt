@@ -16,5 +16,6 @@ data class MealEntry(
     val totalFat: Int,
     val isSaved: Boolean = false,
     val isConfirmed: Boolean = true,
-    val imagePath: String? = null
+    val imagePath: String? = null,
+    val isAnalyzing: Boolean = false
 )

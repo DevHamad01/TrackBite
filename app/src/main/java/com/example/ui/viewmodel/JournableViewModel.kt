@@ -10,10 +10,12 @@ import com.example.data.model.MealEntry
 import com.example.data.model.SavedEntry
 import com.example.data.model.UserProfile
 import com.example.data.model.WaterLog
+import com.example.data.model.WeightLog
 import com.example.data.model.ai.GeminiAiService
 import com.example.data.model.ai.SmartNutritionParser
 import com.example.data.repository.JournableRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -69,7 +71,10 @@ enum class AppScreen {
     SETTINGS_FIRST_DAY,
     SETTINGS_NOTIFICATIONS,
     SETTINGS_TERMS_PRIVACY,
-    WATER_TRACKER
+    WATER_TRACKER,
+    LOGIN,
+    ADJUST_MACROS,
+    CHANGE_DATE_TIME
 }
 
 class JournableViewModel(application: Application) : AndroidViewModel(application) {
@@ -79,7 +84,8 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
         mealEntryDao = db.mealEntryDao(),
         waterLogDao = db.waterLogDao(),
         userProfileDao = db.userProfileDao(),
-        savedEntryDao = db.savedEntryDao()
+        savedEntryDao = db.savedEntryDao(),
+        weightLogDao = db.weightLogDao()
     )
     private val geminiAiService = GeminiAiService(application)
 
@@ -91,6 +97,10 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     val todayDateStr: String = dateFormatter.format(Date())
     val yesterdayDateStr: String = dateFormatter.format(Date(System.currentTimeMillis() - 86400000L))
 
+    // Auth & Account States
+    val isLoggedIn = MutableStateFlow(false)
+    val userEmail = MutableStateFlow("user@trackbite.com")
+
     // Current Selected Date e.g. "26 Jul 2026"
     val selectedDate = MutableStateFlow(todayDateStr)
 
@@ -100,6 +110,39 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     val firstDayOfWeek = MutableStateFlow("Monday")
     val isWaterTrackerEnabled = MutableStateFlow(true)
     val waterGoalCups = MutableStateFlow("8")
+
+    val weightLogs: StateFlow<List<WeightLog>> = repository.weightLogs
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun addWeightLog(weightKg: Float, dateStr: String = todayDateStr) {
+        viewModelScope.launch {
+            repository.insertWeightLog(WeightLog(weightKg = weightKg, dateString = dateStr))
+        }
+    }
+
+    fun deleteWeightLog(logId: Long) {
+        viewModelScope.launch {
+            repository.deleteWeightLog(logId)
+        }
+    }
+
+    fun updateTargetWeight(targetWeightKg: Float) {
+        viewModelScope.launch {
+            val cur = userProfile.value
+            repository.saveProfile(cur.copy(targetWeightKg = targetWeightKg))
+        }
+    }
+
+    val allMealEntries: StateFlow<List<MealEntry>> = repository.getAllMealEntries()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     val loggedDatesSet: StateFlow<Set<String>> = repository.getLoggedDates()
         .map { it.toSet() }
@@ -123,7 +166,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
             initialValue = "Today"
         )
 
-    val currentScreen = MutableStateFlow(AppScreen.DASHBOARD)
+    val currentScreen = MutableStateFlow(AppScreen.LOGIN)
 
     fun updateUserProfileGoals(targetCalories: Int, targetCarbs: Int = 316, targetProtein: Int = 158, targetFat: Int = 71) {
         viewModelScope.launch {
@@ -146,6 +189,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     val editEntryDialogTarget = MutableStateFlow<MealEntry?>(null)
     val isPremiumModalOpen = MutableStateFlow(false)
     val isDrawerOpen = MutableStateFlow(false)
+    val isExportModalOpen = MutableStateFlow(false)
 
     // Logging Input States
     val inputText = MutableStateFlow("")
@@ -162,9 +206,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun seedInitialDataIfNeeded() {
         viewModelScope.launch {
-            val date = todayDateStr
-
-            // Ensure profile exists
+            // Ensure initial user profile exists without injecting fake meals or dummy prompts
             repository.saveProfile(
                 UserProfile(
                     id = 1,
@@ -177,68 +219,6 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
                     isPremium = false
                 )
             )
-
-            // Seed initial water log for 28 Mar 2026
-            repository.updateWaterLog(
-                WaterLog(
-                    date = date,
-                    cups = 4,
-                    targetCups = 8
-                )
-            )
-
-            // Seed initial recent entries
-            val recents = listOf(
-                "2 chicken paratha with raita and 1 cup chai",
-                "2 parathe with full fry and 1 chicken shami",
-                "1 chocolate sunfae",
-                "double patty beef burger with fries"
-            )
-            for (p in recents) {
-                repository.addSavedEntry(p)
-            }
-
-            // Seed initial logged meals for 28 Mar 2026 if empty
-            val item1 = listOf(
-                FoodItem("Paratha", "1 paratha", 200, 30, 5, 7),
-                FoodItem("Daal", "1 plate", 180, 25, 12, 3),
-                FoodItem("Tea", "1 cup", 40, 5, 1, 1)
-            )
-            val json1 = SmartNutritionParser.toJson(item1)
-
-            val entry1 = MealEntry(
-                date = date,
-                originalPrompt = "1 paratha 1 plate daal with tea",
-                formattedTime = "17:12",
-                itemsJson = json1,
-                totalCalories = 420,
-                totalCarbs = 60,
-                totalProtein = 18,
-                totalFat = 11,
-                isSaved = false,
-                isConfirmed = true
-            )
-
-            val item2 = listOf(
-                FoodItem("Tea Cake", "2 tea cakes", 300, 50, 6, 10)
-            )
-            val json2 = SmartNutritionParser.toJson(item2)
-
-            val entry2 = MealEntry(
-                date = date,
-                originalPrompt = "i eat 2 tea Cake",
-                formattedTime = "02:14",
-                itemsJson = json2,
-                totalCalories = 300,
-                totalCarbs = 50,
-                totalProtein = 6,
-                totalFat = 10,
-                isSaved = false,
-                isConfirmed = true
-            )
-
-            repository.insertMealEntry(entry1)
-            repository.insertMealEntry(entry2)
         }
     }
 
@@ -260,8 +240,42 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = WaterLog("28 Mar 2026", cups = 4, targetCups = 8)
+            initialValue = WaterLog(todayDateStr, cups = 0, targetCups = 8)
         )
+
+    fun loginUser(email: String) {
+        userEmail.value = email.ifBlank { "user@trackbite.com" }
+        isLoggedIn.value = true
+        currentScreen.value = AppScreen.DASHBOARD
+    }
+
+    fun logoutUser() {
+        isLoggedIn.value = false
+        isDrawerOpen.value = false
+        currentScreen.value = AppScreen.LOGIN
+    }
+
+    fun clearAllUserDataAndLogout() {
+        viewModelScope.launch {
+            repository.clearAllData()
+            isLoggedIn.value = false
+            isDrawerOpen.value = false
+            currentScreen.value = AppScreen.DASHBOARD
+            // Re-seed minimal empty profile
+            repository.saveProfile(
+                UserProfile(
+                    id = 1,
+                    targetCalories = 2523,
+                    targetCarbs = 316,
+                    targetProtein = 158,
+                    targetFat = 71,
+                    streakCount = 0,
+                    freeEntriesRemaining = 0,
+                    isPremium = false
+                )
+            )
+        }
+    }
 
     val userProfile: StateFlow<UserProfile> = repository.userProfile
         .combine(MutableStateFlow(Unit)) { profile, _ ->
@@ -291,7 +305,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
         entriesForSelectedDate,
         userProfile
     ) { entries, profile ->
-        val confirmed = entries.filter { it.isConfirmed }
+        val confirmed = entries.filter { it.isConfirmed && !it.isAnalyzing }
         val foodCals = confirmed.filter { it.totalCalories > 0 }.sumOf { it.totalCalories }
         val exerciseCals = confirmed.filter { it.totalCalories < 0 }.sumOf { Math.abs(it.totalCalories) }
 
@@ -391,37 +405,63 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun processInputAndLog(promptOverride: String? = null) {
         val textToProcess = promptOverride ?: inputText.value.trim()
-        if (textToProcess.isBlank() && selectedImageBitmap.value == null) return
+        val imageToProcess = selectedImageBitmap.value
+        if (textToProcess.isBlank() && imageToProcess == null) return
 
+        val nowTime = timeFormatter.format(Date())
+        val promptText = textToProcess.ifBlank { "Scanned Meal" }
+
+        inputText.value = ""
+        selectedImageBitmap.value = null
         isProcessingAi.value = true
+
         viewModelScope.launch {
-            val result = geminiAiService.processMultiModalInput(
-                prompt = textToProcess,
-                imageBitmap = selectedImageBitmap.value
+            // Step 1: Insert pending meal entry with isAnalyzing = true so it displays in list immediately
+            val pendingEntry = MealEntry(
+                date = selectedDate.value,
+                originalPrompt = promptText,
+                formattedTime = nowTime,
+                itemsJson = "",
+                totalCalories = 0,
+                totalCarbs = 0,
+                totalProtein = 0,
+                totalFat = 0,
+                isSaved = false,
+                isConfirmed = true,
+                isAnalyzing = true
             )
 
-            val json = SmartNutritionParser.toJson(result.items)
-            val nowTime = timeFormatter.format(Date())
+            val pendingId = repository.insertMealEntry(pendingEntry)
 
-            val entry = MealEntry(
-                date = selectedDate.value,
-                originalPrompt = textToProcess.ifBlank { "Scanned Meal" },
-                formattedTime = nowTime,
+            val startTime = System.currentTimeMillis()
+
+            // Step 2: Analyze meal with Gemini AI
+            val result = geminiAiService.processMultiModalInput(
+                prompt = textToProcess,
+                imageBitmap = imageToProcess
+            )
+
+            // Ensure a minimum delay of 1.8 seconds for natural processing perception
+            val elapsedTime = System.currentTimeMillis() - startTime
+            val minProcessingTimeMs = 1800L
+            if (elapsedTime < minProcessingTimeMs) {
+                delay(minProcessingTimeMs - elapsedTime)
+            }
+
+            val json = SmartNutritionParser.toJson(result.items)
+
+            // Step 3: Update entry with parsed breakdown and totals
+            val analyzedEntry = pendingEntry.copy(
+                id = pendingId,
                 itemsJson = json,
                 totalCalories = result.totalCalories,
                 totalCarbs = result.totalCarbs,
                 totalProtein = result.totalProtein,
                 totalFat = result.totalFat,
-                isSaved = false,
-                isConfirmed = false // Opens State 3: Quick Confirmation Card
+                isAnalyzing = false
             )
 
-            val newId = repository.insertMealEntry(entry)
-            val insertedEntry = entry.copy(id = newId)
-
-            confirmationEntry.value = insertedEntry
-            inputText.value = ""
-            selectedImageBitmap.value = null
+            repository.updateMealEntry(analyzedEntry)
             isProcessingAi.value = false
         }
     }
@@ -492,6 +532,66 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     fun logSavedOrRecentEntry(promptText: String) {
         isSavedEntriesSheetOpen.value = false
         processInputAndLog(promptText)
+    }
+
+    val selectedMealEntryForEdit = MutableStateFlow<MealEntry?>(null)
+    val showFeedbackDialog = MutableStateFlow(false)
+
+    fun reanalyzeMealEntry(entry: MealEntry, newPrompt: String) {
+        if (newPrompt.trim() == entry.originalPrompt.trim()) return
+
+        viewModelScope.launch {
+            // Set analyzing state
+            val analyzingEntry = entry.copy(
+                originalPrompt = newPrompt,
+                isAnalyzing = true
+            )
+            repository.updateMealEntry(analyzingEntry)
+
+            val startTime = System.currentTimeMillis()
+            val result = geminiAiService.processMultiModalInput(prompt = newPrompt, imageBitmap = null)
+
+            val elapsedTime = System.currentTimeMillis() - startTime
+            if (elapsedTime < 1500L) {
+                delay(1500L - elapsedTime)
+            }
+
+            val json = SmartNutritionParser.toJson(result.items)
+            val updatedEntry = analyzingEntry.copy(
+                itemsJson = json,
+                totalCalories = result.totalCalories,
+                totalCarbs = result.totalCarbs,
+                totalProtein = result.totalProtein,
+                totalFat = result.totalFat,
+                isAnalyzing = false
+            )
+
+            repository.updateMealEntry(updatedEntry)
+        }
+    }
+
+    fun updateMealMacros(entry: MealEntry, isFood: Boolean, calories: Int, carbs: Int, protein: Int, fat: Int) {
+        viewModelScope.launch {
+            val updated = entry.copy(
+                totalCalories = calories,
+                totalCarbs = carbs,
+                totalProtein = protein,
+                totalFat = fat
+            )
+            repository.updateMealEntry(updated)
+            selectedMealEntryForEdit.value = null
+        }
+    }
+
+    fun updateMealDateTime(entry: MealEntry, newDate: String, newTime: String) {
+        viewModelScope.launch {
+            val updated = entry.copy(
+                date = newDate,
+                formattedTime = newTime
+            )
+            repository.updateMealEntry(updated)
+            selectedMealEntryForEdit.value = null
+        }
     }
 
     fun updateGoals(targetCals: Int, carbs: Int, protein: Int, fat: Int) {

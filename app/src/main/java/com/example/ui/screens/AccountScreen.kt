@@ -37,21 +37,65 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.UserProfile
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
+
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountScreen(
     userProfile: UserProfile,
     onBackClick: () -> Unit,
+    onDeleteAccount: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val buttonBlue = Color(0xFF2B5B84)
-    val buttonBg = Color(0xFFEEF2F6)
+    val buttonBlue = GreenPrimary
+    val buttonBg = Color(0xFFE8F5E9)
 
-    var fullName by remember { mutableStateOf("Hamad") }
-    var email by remember { mutableStateOf("mesaad074@gmail.com") }
+    var fullName by remember { mutableStateOf("User") }
+    var email by remember { mutableStateOf("user@trackbite.com") }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = {
+                Text(
+                    text = "Delete Account",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFFD32F2F)
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to permanently delete your account? All your logged food, exercise, weight logs, and history stored in the app database will be erased completely.",
+                    fontSize = 14.sp,
+                    color = TextPrimary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteAccount()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                ) {
+                    Text("Delete Everything", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = TextMuted)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -165,7 +209,7 @@ fun AccountScreen(
                 fontSize = 15.sp,
                 color = TextPrimary,
                 lineHeight = 22.sp,
-                modifier = Modifier.clickable { /* handle delete action */ }
+                modifier = Modifier.clickable { showDeleteDialog = true }
             )
         }
     }

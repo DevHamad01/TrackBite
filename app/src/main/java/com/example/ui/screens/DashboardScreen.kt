@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
@@ -23,11 +26,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.example.ui.theme.GreenPrimary
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,6 +50,8 @@ import com.example.ui.components.DateSelectorStrip
 import com.example.ui.components.DrawerMenu
 import com.example.ui.components.EditEntryDialog
 import com.example.ui.components.EntryOptionsBottomSheet
+import com.example.ui.components.ExportReportDialog
+import com.example.ui.components.FeedbackDialog
 import com.example.ui.components.MealCard
 import com.example.ui.components.QuickConfirmationCard
 import com.example.ui.components.SavedEntriesBottomSheet
@@ -78,6 +88,59 @@ fun DashboardScreen(
     val waterLog by viewModel.waterLogForSelectedDate.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val summaryMetrics by viewModel.summaryMetrics.collectAsState()
+    val isWaterTrackerEnabled by viewModel.isWaterTrackerEnabled.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val allMealEntries by viewModel.allMealEntries.collectAsState()
+    val weightLogs by viewModel.weightLogs.collectAsState()
+
+    val showFeedbackDialog by viewModel.showFeedbackDialog.collectAsState()
+    val userEmail by viewModel.userEmail.collectAsState()
+
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = {
+                Text(
+                    text = if (isLoggedIn) "Logout Confirmation" else "Login Confirmation",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = if (isLoggedIn) "Are you sure you want to log out? Your recorded entries will remain saved locally." else "Log back into TrackBite to view and manage your logged entries?",
+                    fontSize = 14.sp,
+                    color = TextPrimary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        viewModel.isLoggedIn.value = !isLoggedIn
+                        Toast.makeText(
+                            context,
+                            if (isLoggedIn) "Logged out successfully." else "Logged in successfully!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+                ) {
+                    Text(if (isLoggedIn) "Yes, Logout" else "Log In", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel", color = TextMuted)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
 
     val savedEntries by viewModel.savedEntriesList.collectAsState()
     val recentEntries by viewModel.recentEntriesList.collectAsState()
@@ -126,15 +189,17 @@ fun DashboardScreen(
                     viewModel.currentScreen.value = AppScreen.WATER_TRACKER
                 },
                 onFeedbackClick = {
-                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                        data = Uri.parse("mailto:mh.atgsystems@gmail.com")
-                        putExtra(Intent.EXTRA_SUBJECT, "TrackBite Feedback & Support")
-                    }
-                    try {
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "No email client found", Toast.LENGTH_SHORT).show()
-                    }
+                    coroutineScope.launch { drawerState.close() }
+                    viewModel.showFeedbackDialog.value = true
+                },
+                onExportClick = {
+                    coroutineScope.launch { drawerState.close() }
+                    showExportDialog = true
+                },
+                isLoggedIn = isLoggedIn,
+                onLogoutClick = {
+                    coroutineScope.launch { drawerState.close() }
+                    showLogoutDialog = true
                 }
             )
         }
@@ -154,7 +219,7 @@ fun DashboardScreen(
                         onMenuClick = { coroutineScope.launch { drawerState.open() } },
                         onDateToggleClick = { viewModel.isCalendarExpanded.value = !isCalendarExpanded },
                         onResetTodayClick = { viewModel.resetToToday() },
-                        onShareClick = { Toast.makeText(context, "Sharing daily summary...", Toast.LENGTH_SHORT).show() },
+                        onShareClick = { showExportDialog = true },
                         onStreakClick = { viewModel.currentScreen.value = AppScreen.STREAK }
                     )
 
@@ -212,13 +277,15 @@ fun DashboardScreen(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 // Water Tracker Card
-                item {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    WaterTrackingCard(
-                        waterLog = waterLog,
-                        onIncrement = { viewModel.incrementWater() },
-                        onDecrement = { viewModel.decrementWater() }
-                    )
+                if (isWaterTrackerEnabled) {
+                    item {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        WaterTrackingCard(
+                            waterLog = waterLog,
+                            onIncrement = { viewModel.incrementWater() },
+                            onDecrement = { viewModel.decrementWater() }
+                        )
+                    }
                 }
 
                 // Zone 3: Pending Quick Confirmation Card (State 3 - Image 4)
@@ -273,7 +340,10 @@ fun DashboardScreen(
                         MealCard(
                             mealEntry = mealEntry,
                             onEditClick = { viewModel.openEditEntryDialog(it) },
-                            onOptionsClick = { viewModel.openEntryOptions(it) }
+                            onOptionsClick = { viewModel.openEntryOptions(it) },
+                            onSaveInlineEdit = { entry, newText ->
+                                viewModel.reanalyzeMealEntry(entry, newText)
+                            }
                         )
                     }
                 }
@@ -286,8 +356,16 @@ fun DashboardScreen(
         entry = activeOptionEntry,
         onDismiss = { viewModel.closeEntryOptions() },
         onEditEntry = { viewModel.openEditEntryDialog(it) },
-        onAdjustMacros = { viewModel.openEditEntryDialog(it) },
-        onChangeDateTime = { viewModel.openEditEntryDialog(it) },
+        onAdjustMacros = { entry ->
+            viewModel.selectedMealEntryForEdit.value = entry
+            viewModel.closeEntryOptions()
+            viewModel.currentScreen.value = AppScreen.ADJUST_MACROS
+        },
+        onChangeDateTime = { entry ->
+            viewModel.selectedMealEntryForEdit.value = entry
+            viewModel.closeEntryOptions()
+            viewModel.currentScreen.value = AppScreen.CHANGE_DATE_TIME
+        },
         onAddToSaved = { viewModel.saveActiveOptionEntryToFavorites() },
         onDeleteEntry = { viewModel.deleteActiveOptionEntry() }
     )
@@ -309,4 +387,22 @@ fun DashboardScreen(
             viewModel.saveEditedEntry(entry, prompt, cals, carbs, protein, fat)
         }
     )
+
+    // Export Report Modal Dialog
+    if (showExportDialog) {
+        ExportReportDialog(
+            userProfile = userProfile,
+            mealEntries = allMealEntries,
+            weightLogs = weightLogs,
+            onDismiss = { showExportDialog = false }
+        )
+    }
+
+    // Feedback Dialog
+    if (showFeedbackDialog) {
+        FeedbackDialog(
+            initialEmail = userEmail,
+            onDismiss = { viewModel.showFeedbackDialog.value = false }
+        )
+    }
 }

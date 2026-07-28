@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,8 +48,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.MealEntry
 import com.example.data.model.UserProfile
 import com.example.ui.theme.CardBorder
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -57,19 +60,40 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+data class DailySummaryData(
+    val foodCals: Int,
+    val exerciseCals: Int,
+    val remaining: Int,
+    val carbs: Int,
+    val protein: Int,
+    val fat: Int,
+    val hasEntries: Boolean
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeeklySummaryScreen(
     userProfile: UserProfile,
+    mealEntries: List<MealEntry> = emptyList(),
     onBackClick: () -> Unit,
+    onExportClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var selectedTabItem by remember { mutableIntStateOf(0) } // 0 = This week, 1 = Last week, 2 = 2 weeks ago, 3 = 3 weeks ago
-    val tabs = listOf("This week", "Last week", "2 weeks ago", "3 weeks ago")
+    var selectedTabItem by remember { mutableIntStateOf(0) }
+    val tabs = listOf(
+        "This week",
+        "Last week",
+        "2 weeks ago",
+        "3 weeks ago",
+        "4 weeks ago",
+        "5 weeks ago",
+        "6 weeks ago",
+        "7 weeks ago"
+    )
 
-    val buttonBlue = Color(0xFF2B5B84)
-    val successGreen = Color(0xFF388E3C)
+    val buttonBlue = GreenPrimary
+    val successGreen = GreenPrimary
 
     // Calculate start and end dates for selected tab week
     val today = LocalDate.now()
@@ -80,14 +104,42 @@ fun WeeklySummaryScreen(
     val dateRangeFormatter = DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.ENGLISH)
     val dateRangeText = "${selectedMonday.format(dateRangeFormatter)} - ${selectedSunday.format(dateRangeFormatter)}"
 
+    val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.US)
+
     val daysOfWeek = (0..6).map { dayIndex ->
         val date = selectedMonday.plusDays(dayIndex.toLong())
+        val dateString = date.format(dateFormatter)
+        val dayMeals = mealEntries.filter { it.date == dateString }
+        val foodCals = dayMeals.filter { it.totalCalories > 0 }.sumOf { it.totalCalories }
+        val exerciseCals = dayMeals.filter { it.totalCalories < 0 }.sumOf { Math.abs(it.totalCalories) }
+        val totalCarbs = dayMeals.filter { it.totalCalories > 0 }.sumOf { it.totalCarbs }
+        val totalProtein = dayMeals.filter { it.totalCalories > 0 }.sumOf { it.totalProtein }
+        val totalFat = dayMeals.filter { it.totalCalories > 0 }.sumOf { it.totalFat }
+        val remaining = userProfile.targetCalories - (foodCals - exerciseCals)
+
         Triple(
             date.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)),
             date.format(DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)),
-            date
+            DailySummaryData(
+                foodCals = foodCals,
+                exerciseCals = exerciseCals,
+                remaining = remaining,
+                carbs = totalCarbs,
+                protein = totalProtein,
+                fat = totalFat,
+                hasEntries = dayMeals.isNotEmpty()
+            )
         )
     }
+
+    val totalFood = daysOfWeek.sumOf { it.third.foodCals }
+    val totalExercise = daysOfWeek.sumOf { it.third.exerciseCals }
+    val totalRemaining = daysOfWeek.sumOf { it.third.remaining }
+    val totalCarbs = daysOfWeek.sumOf { it.third.carbs }
+    val totalProtein = daysOfWeek.sumOf { it.third.protein }
+    val totalFat = daysOfWeek.sumOf { it.third.fat }
+    val daysTracked = daysOfWeek.count { it.third.hasEntries }
+    val budgetDifference = (userProfile.targetCalories * 7) - (totalFood - totalExercise)
 
     Scaffold(
         topBar = {
@@ -110,14 +162,7 @@ fun WeeklySummaryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "Weekly Summary - TrackBite")
-                            putExtra(Intent.EXTRA_TEXT, "My Weekly Summary ($dateRangeText):\nDaily Calorie Goal: ${userProfile.targetCalories} kcal\nTracked with TrackBite.")
-                        }
-                        context.startActivity(Intent.createChooser(shareIntent, "Share Weekly Summary"))
-                    }) {
+                    IconButton(onClick = onExportClick) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "Share",
@@ -201,16 +246,16 @@ fun WeeklySummaryScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "0 calories under budget this week",
+                            text = if (budgetDifference >= 0) "$budgetDifference calories under budget this week" else "${-budgetDifference} calories over budget this week",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = successGreen
+                            color = if (budgetDifference >= 0) successGreen else Color(0xFFE53935)
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = "0 out of 7 days tracked this week",
+                            text = "$daysTracked out of 7 days tracked this week",
                             fontSize = 14.sp,
                             color = TextMuted
                         )
@@ -253,7 +298,7 @@ fun WeeklySummaryScreen(
                         HorizontalDivider(color = Color(0xFFF0F0F0))
 
                         // Daily Rows
-                        daysOfWeek.forEach { (dayName, dateStr, _) ->
+                        daysOfWeek.forEach { (dayName, dateStr, summary) ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -265,9 +310,27 @@ fun WeeklySummaryScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(text = dateStr, fontSize = 14.sp, color = TextSecondary)
                                 }
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                                Text(
+                                    text = if (summary.hasEntries) "${summary.foodCals}" else "-",
+                                    fontSize = 14.sp,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = if (summary.hasEntries && summary.exerciseCals > 0) "${summary.exerciseCals}" else "-",
+                                    fontSize = 14.sp,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = if (summary.hasEntries) "${summary.remaining}" else "-",
+                                    fontSize = 14.sp,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
                             HorizontalDivider(color = Color(0xFFF7F7F7))
                         }
@@ -280,22 +343,9 @@ fun WeeklySummaryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(text = "Total", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1.3f))
-                            Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                        }
-
-                        // Versus last week
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "Versus last week", fontSize = 12.sp, color = TextMuted, modifier = Modifier.weight(1.3f))
-                            Text(text = "-", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "-", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "-", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "$totalFood", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "$totalExercise", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "$totalRemaining", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
                         }
 
                         HorizontalDivider(color = Color(0xFFF0F0F0))
@@ -337,15 +387,15 @@ fun WeeklySummaryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Spacer(modifier = Modifier.weight(1.3f))
-                            Text(text = "Carbs", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "Protein", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "Fat", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "Carbs (g)", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "Protein (g)", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "Fat (g)", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
                         }
 
                         HorizontalDivider(color = Color(0xFFF0F0F0))
 
                         // Daily Rows
-                        daysOfWeek.forEach { (dayName, dateStr, _) ->
+                        daysOfWeek.forEach { (dayName, dateStr, summary) ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -357,9 +407,27 @@ fun WeeklySummaryScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(text = dateStr, fontSize = 14.sp, color = TextSecondary)
                                 }
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                                Text(
+                                    text = if (summary.hasEntries) "${summary.carbs}" else "-",
+                                    fontSize = 14.sp,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = if (summary.hasEntries) "${summary.protein}" else "-",
+                                    fontSize = 14.sp,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = if (summary.hasEntries) "${summary.fat}" else "-",
+                                    fontSize = 14.sp,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
                             HorizontalDivider(color = Color(0xFFF7F7F7))
                         }
@@ -368,186 +436,16 @@ fun WeeklySummaryScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 10.dp),
+                                .padding(top = 10.dp, bottom = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(text = "Total", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1.3f))
-                            Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                        }
-
-                        HorizontalDivider(color = Color(0xFFF0F0F0))
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Text(
-                            text = "* Based on a daily macronutrient distribution of 50% carbohydrates, 25% protein, and 25% fat",
-                            fontSize = 12.sp,
-                            color = TextMuted,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
-
-                // Weight Card
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Weight",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
-                        HorizontalDivider(color = Color(0xFFF0F0F0))
-
-                        daysOfWeek.forEach { (dayName, dateStr, dateObj) ->
-                            val isSat = dayName == "Sat"
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(modifier = Modifier.weight(1.3f)) {
-                                    Text(text = dayName, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(text = dateStr, fontSize = 14.sp, color = TextSecondary)
-                                }
-                                Text(
-                                    text = if (isSat) "23:24" else "-",
-                                    fontSize = 14.sp,
-                                    color = TextPrimary,
-                                    textAlign = TextAlign.End,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = if (isSat) "50 kg" else "-",
-                                    fontSize = 14.sp,
-                                    color = TextPrimary,
-                                    textAlign = TextAlign.End,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            HorizontalDivider(color = Color(0xFFF7F7F7))
+                            Text(text = "${totalCarbs}g", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "${totalProtein}g", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                            Text(text = "${totalFat}g", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
                         }
                     }
                 }
-
-                // Water Card
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Water",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
-                        // Table Header
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Spacer(modifier = Modifier.weight(1.3f))
-                            Text(text = "Cups", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "Volume", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            Text(text = "Remaining Cups", fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                        }
-
-                        HorizontalDivider(color = Color(0xFFF0F0F0))
-
-                        // Daily Rows
-                        daysOfWeek.forEach { (dayName, dateStr, _) ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(modifier = Modifier.weight(1.3f)) {
-                                    Text(text = dayName, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(text = dateStr, fontSize = 14.sp, color = TextSecondary)
-                                }
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                                Text(text = "-", fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                            }
-                            HorizontalDivider(color = Color(0xFFF7F7F7))
-                        }
-                    }
-                }
-
-                // Consistency Stats Card
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Consistency Stats",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "Food entries", fontSize = 15.sp, color = TextPrimary)
-                            Text(text = "0", fontSize = 15.sp, color = TextPrimary)
-                        }
-
-                        HorizontalDivider(color = Color(0xFFF7F7F7))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "Exercise entries", fontSize = 15.sp, color = TextPrimary)
-                            Text(text = "0", fontSize = 15.sp, color = TextPrimary)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }

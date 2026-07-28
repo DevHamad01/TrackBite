@@ -14,4 +14,7 @@ interface WaterLogDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateWaterLog(waterLog: WaterLog)
+
+    @Query("DELETE FROM water_logs")
+    suspend fun deleteAllWaterLogs()
 }

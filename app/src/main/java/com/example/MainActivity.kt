@@ -7,14 +7,19 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.components.ExportReportDialog
 import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.DailyGoalCalculatorScreen
 import com.example.ui.screens.DailyGoalsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.FirstDayOfWeekScreen
 import com.example.ui.screens.LiquidUnitScreen
+import com.example.ui.screens.LoginScreen
 import com.example.ui.screens.NotificationsSettingsScreen
 import com.example.ui.screens.RemindersScreen
 import com.example.ui.screens.SettingsScreen
@@ -24,6 +29,8 @@ import com.example.ui.screens.WaterTrackerScreen
 import com.example.ui.screens.WeeklySummaryScreen
 import com.example.ui.screens.WeightTrackerScreen
 import com.example.ui.screens.WeightUnitScreen
+import com.example.ui.screens.AdjustMacrosScreen
+import com.example.ui.screens.ChangeDateTimeScreen
 import com.example.ui.theme.JournableTheme
 import com.example.ui.viewmodel.AppScreen
 import com.example.ui.viewmodel.JournableViewModel
@@ -43,8 +50,48 @@ class MainActivity : ComponentActivity() {
                 val firstDayOfWeek by viewModel.firstDayOfWeek.collectAsState()
                 val isWaterTrackerEnabled by viewModel.isWaterTrackerEnabled.collectAsState()
                 val waterGoalCups by viewModel.waterGoalCups.collectAsState()
+                val mealEntries by viewModel.allMealEntries.collectAsState()
+                val weightLogs by viewModel.weightLogs.collectAsState()
+
+                var showExportDialogInApp by remember { mutableStateOf(false) }
+                val selectedMealEntryForEdit by viewModel.selectedMealEntryForEdit.collectAsState()
 
                 when (currentScreen) {
+                    AppScreen.LOGIN -> {
+                        LoginScreen(
+                            onLoginSuccess = { email -> viewModel.loginUser(email) },
+                            onBackClick = { },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    AppScreen.ADJUST_MACROS -> {
+                        selectedMealEntryForEdit?.let { entry ->
+                            AdjustMacrosScreen(
+                                mealEntry = entry,
+                                onSave = { updatedEntry, isFood, cals, carbs, protein, fat ->
+                                    viewModel.updateMealMacros(updatedEntry, isFood, cals, carbs, protein, fat)
+                                },
+                                onBackClick = { viewModel.currentScreen.value = AppScreen.DASHBOARD },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } ?: run {
+                            viewModel.currentScreen.value = AppScreen.DASHBOARD
+                        }
+                    }
+                    AppScreen.CHANGE_DATE_TIME -> {
+                        selectedMealEntryForEdit?.let { entry ->
+                            ChangeDateTimeScreen(
+                                mealEntry = entry,
+                                onSave = { updatedEntry, newDate, newTime ->
+                                    viewModel.updateMealDateTime(updatedEntry, newDate, newTime)
+                                },
+                                onBackClick = { viewModel.currentScreen.value = AppScreen.DASHBOARD },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } ?: run {
+                            viewModel.currentScreen.value = AppScreen.DASHBOARD
+                        }
+                    }
                     AppScreen.DASHBOARD -> {
                         DashboardScreen(
                             viewModel = viewModel,
@@ -75,13 +122,25 @@ class MainActivity : ComponentActivity() {
                     AppScreen.WEEKLY_SUMMARY -> {
                         WeeklySummaryScreen(
                             userProfile = userProfile,
+                            mealEntries = mealEntries,
                             onBackClick = { viewModel.currentScreen.value = AppScreen.DASHBOARD },
+                            onExportClick = { showExportDialogInApp = true },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
                     AppScreen.WEIGHT_TRACKER -> {
                         WeightTrackerScreen(
                             userProfile = userProfile,
+                            weightLogs = weightLogs,
+                            onAddWeightLog = { weight, dateStr ->
+                                viewModel.addWeightLog(weight, dateStr)
+                            },
+                            onDeleteWeightLog = { logId ->
+                                viewModel.deleteWeightLog(logId)
+                            },
+                            onUpdateTargetWeight = { target ->
+                                viewModel.updateTargetWeight(target)
+                            },
                             onBackClick = { viewModel.currentScreen.value = AppScreen.DASHBOARD },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -98,6 +157,10 @@ class MainActivity : ComponentActivity() {
                         AccountScreen(
                             userProfile = userProfile,
                             onBackClick = { viewModel.currentScreen.value = AppScreen.DASHBOARD },
+                            onDeleteAccount = {
+                                viewModel.clearAllUserDataAndLogout()
+                                viewModel.currentScreen.value = AppScreen.DASHBOARD
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -115,6 +178,7 @@ class MainActivity : ComponentActivity() {
                             onNavigateToFirstDay = { viewModel.currentScreen.value = AppScreen.SETTINGS_FIRST_DAY },
                             onNavigateToNotifications = { viewModel.currentScreen.value = AppScreen.SETTINGS_NOTIFICATIONS },
                             onNavigateToTermsPrivacy = { viewModel.currentScreen.value = AppScreen.SETTINGS_TERMS_PRIVACY },
+                            onExportClick = { showExportDialogInApp = true },
                             liquidUnit = liquidUnit,
                             weightUnit = weightUnit,
                             firstDayOfWeek = firstDayOfWeek,
@@ -176,6 +240,15 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize()
                         )
                     }
+                }
+
+                if (showExportDialogInApp) {
+                    ExportReportDialog(
+                        userProfile = userProfile,
+                        mealEntries = mealEntries,
+                        weightLogs = weightLogs,
+                        onDismiss = { showExportDialogInApp = false }
+                    )
                 }
             }
         }

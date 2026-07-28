@@ -43,6 +43,7 @@ fun SettingsScreen(
     onNavigateToFirstDay: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToTermsPrivacy: () -> Unit,
+    onExportClick: () -> Unit = {},
     liquidUnit: String,
     weightUnit: String,
     firstDayOfWeek: String,
@@ -105,7 +106,7 @@ fun SettingsScreen(
             // Upgrade to Premium
             SettingsClickableRow(
                 title = "Upgrade to Premium",
-                subtitle = "No free entries remaining",
+                subtitle = "Free for now",
                 onClick = { /* Upgrade action */ }
             )
 
@@ -152,6 +153,15 @@ fun SettingsScreen(
                 title = "Terms & Privacy",
                 subtitle = null,
                 onClick = onNavigateToTermsPrivacy
+            )
+
+            HorizontalDivider(color = CardBorder, thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Export Data
+            SettingsClickableRow(
+                title = "Export Report",
+                subtitle = "Generate downloadable PDF / CSV report",
+                onClick = onExportClick
             )
         }
     }

@@ -8,15 +8,17 @@ import com.example.data.model.MealEntry
 import com.example.data.model.SavedEntry
 import com.example.data.model.UserProfile
 import com.example.data.model.WaterLog
+import com.example.data.model.WeightLog
 
 @Database(
     entities = [
         MealEntry::class,
         WaterLog::class,
         UserProfile::class,
-        SavedEntry::class
+        SavedEntry::class,
+        WeightLog::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun waterLogDao(): WaterLogDao
     abstract fun userProfileDao(): UserProfileDao
     abstract fun savedEntryDao(): SavedEntryDao
+    abstract fun weightLogDao(): WeightLogDao
 
     companion object {
         @Volatile
@@ -35,7 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "trackbite_db"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }

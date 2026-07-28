@@ -25,9 +25,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -71,7 +73,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.UserProfile
+import com.example.data.model.WeightLog
 import com.example.ui.theme.CardBorder
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -83,56 +87,34 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-data class WeightEntryItem(
-    val id: Long = System.currentTimeMillis(),
-    val weightKg: Float,
-    val dateTime: LocalDateTime
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeightTrackerScreen(
     userProfile: UserProfile,
+    weightLogs: List<WeightLog>,
+    onAddWeightLog: (Float, String) -> Unit,
+    onDeleteWeightLog: (Long) -> Unit,
+    onUpdateTargetWeight: (Float) -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonBlue = Color(0xFF2B5B84)
-    val targetGreen = Color(0xFF388E3C)
+    val buttonBlue = GreenPrimary
+    val targetGreen = GreenPrimary
     val chartGridGray = Color(0xFFE5E7EB)
 
-    // Initial weight entry list matching user screenshots
-    val weightEntries = remember {
-        mutableStateListOf(
-            WeightEntryItem(
-                id = 1,
-                weightKg = 50f,
-                dateTime = LocalDateTime.of(2026, 7, 25, 23, 24)
-            ),
-            WeightEntryItem(
-                id = 2,
-                weightKg = 50f,
-                dateTime = LocalDateTime.of(2026, 3, 28, 2, 12)
-            ),
-            WeightEntryItem(
-                id = 3,
-                weightKg = 50f,
-                dateTime = LocalDateTime.of(2026, 3, 28, 2, 11)
-            )
-        )
-    }
+    val currentWeightKg = weightLogs.firstOrNull()?.weightKg ?: 70f
+    var targetWeightKg by remember(userProfile) { mutableIntStateOf(75) }
+    var isEditTargetDialogOpen by remember { mutableStateOf(false) }
+    var targetInputText by remember { mutableStateOf(targetWeightKg.toString()) }
 
-    var targetWeightKg by remember { mutableIntStateOf(75) }
     var selectedFilterTab by remember { mutableStateOf("Week") } // "Week", "Month", "Year", "All time"
     val filterTabs = listOf("Week", "Month", "Year", "All time")
 
-    // Current Weight is the latest entry
-    val currentWeightKg = weightEntries.firstOrNull()?.weightKg ?: 50f
-
     // Dialog & Picker States
     var isAddWeightDialogOpen by remember { mutableStateOf(false) }
-    var inputWeightText by remember { mutableStateOf("55") }
+    var inputWeightText by remember { mutableStateOf(currentWeightKg.toInt().toString()) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var selectedTime by remember { mutableStateOf(LocalTime.of(1, 45)) }
+    var selectedTime by remember { mutableStateOf(LocalTime.now()) }
 
     var isDatePickerDialogOpen by remember { mutableStateOf(false) }
     var isTimePickerDialogOfOpen by remember { mutableStateOf(false) }
@@ -142,9 +124,9 @@ fun WeightTrackerScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Weight Tracker",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "Weight",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                 },
@@ -213,37 +195,53 @@ fun WeightTrackerScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "${currentWeightKg.toInt()} kg",
-                            fontSize = 26.sp,
+                            text = "${"%.1f".format(currentWeightKg)} kg",
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                     }
                 }
 
-                // Target Weight Card
+                // Target Weight Card (Clickable to edit target)
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     modifier = Modifier
                         .weight(1f)
                         .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .clickable {
+                            targetInputText = targetWeightKg.toString()
+                            isEditTargetDialogOpen = true
+                        }
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(14.dp)
                     ) {
-                        Text(
-                            text = "Target Weight",
-                            fontSize = 12.sp,
-                            color = TextMuted,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Target Weight",
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Target",
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "$targetWeightKg kg",
-                            fontSize = 26.sp,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
@@ -286,7 +284,7 @@ fun WeightTrackerScreen(
                 }
             }
 
-            // Weight Graph Card
+            // Weight Graph Card - Dynamic Canvas Chart
             Card(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -296,119 +294,127 @@ fun WeightTrackerScreen(
                     .padding(12.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    // Canvas Chart
+                    val logsAsc = remember(weightLogs) { weightLogs.sortedBy { it.timestamp } }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
                     ) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val width = size.width
-                            val height = size.height
-
-                            val paddingLeft = 40.dp.toPx()
-                            val paddingBottom = 30.dp.toPx()
-                            val paddingTop = 20.dp.toPx()
-                            val paddingRight = 10.dp.toPx()
-
-                            val chartWidth = width - paddingLeft - paddingRight
-                            val chartHeight = height - paddingTop - paddingBottom
-
-                            // Y Axis Values: 45, 55, 65, 75
-                            val yValues = listOf(45, 55, 65, 75)
-                            val minY = 45f
-                            val maxY = 75f
-
-                            // Draw Y Grid lines and Y Labels
-                            yValues.forEachIndexed { idx, value ->
-                                val yRatio = (value - minY) / (maxY - minY)
-                                val yPos = height - paddingBottom - (yRatio * chartHeight)
-
-                                // Horizontal grid line
-                                drawLine(
-                                    color = chartGridGray,
-                                    start = Offset(paddingLeft, yPos),
-                                    end = Offset(width - paddingRight, yPos),
-                                    strokeWidth = 1.dp.toPx()
-                                )
-                            }
-
-                            // Target weight dashed green line at 75 kg
-                            val targetYPos = height - paddingBottom - chartHeight // at 75
-                            drawLine(
-                                color = targetGreen,
-                                start = Offset(paddingLeft, targetYPos),
-                                end = Offset(width - paddingRight, targetYPos),
-                                strokeWidth = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
-                            )
-
-                            // Actual Weight Solid Blue Line at 50 kg
-                            val currentYPos = height - paddingBottom - ((50f - minY) / (maxY - minY) * chartHeight)
-                            drawLine(
-                                color = buttonBlue,
-                                start = Offset(paddingLeft, currentYPos),
-                                end = Offset(width - paddingRight, currentYPos),
-                                strokeWidth = 2.5.dp.toPx()
-                            )
-
-                            // End point node dot on solid blue line
-                            val endX = width - paddingRight
-                            drawCircle(
-                                color = buttonBlue,
-                                radius = 5.dp.toPx(),
-                                center = Offset(endX, currentYPos)
-                            )
-                            drawCircle(
-                                color = Color.White,
-                                radius = 2.5.dp.toPx(),
-                                center = Offset(endX, currentYPos)
-                            )
-
-                            // Vertical grid lines
-                            val numXLines = 4
-                            for (i in 0 until numXLines) {
-                                val xPos = paddingLeft + (i.toFloat() / (numXLines - 1)) * chartWidth
-                                drawLine(
-                                    color = chartGridGray,
-                                    start = Offset(xPos, paddingTop),
-                                    end = Offset(xPos, height - paddingBottom),
-                                    strokeWidth = 1.dp.toPx()
-                                )
-                            }
-                        }
-
-                        // Y-Axis Labels Overlay
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(bottom = 30.dp, top = 10.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            listOf(75, 65, 55, 45).forEach { labelVal ->
+                        if (logsAsc.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text(
-                                    text = "$labelVal",
-                                    fontSize = 12.sp,
+                                    text = "No weight logs recorded yet.\nTap '+' to log your weight.",
+                                    fontSize = 14.sp,
                                     color = TextMuted,
-                                    modifier = Modifier.width(32.dp)
+                                    textAlign = TextAlign.Center
                                 )
                             }
-                        }
+                        } else {
+                            val minWeight = remember(logsAsc, targetWeightKg) {
+                                (minOf(logsAsc.minOf { it.weightKg }, targetWeightKg.toFloat()) - 5f).coerceAtLeast(0f)
+                            }
+                            val maxWeight = remember(logsAsc, targetWeightKg) {
+                                (maxOf(logsAsc.maxOf { it.weightKg }, targetWeightKg.toFloat()) + 5f)
+                            }
 
-                        // X-Axis Labels Overlay
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomStart)
-                                .padding(start = 40.dp, end = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            listOf("Jul 18", "20", "22", "24").forEach { dateLabel ->
-                                Text(
-                                    text = dateLabel,
-                                    fontSize = 12.sp,
-                                    color = TextMuted
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val width = size.width
+                                val height = size.height
+
+                                val paddingLeft = 45.dp.toPx()
+                                val paddingBottom = 30.dp.toPx()
+                                val paddingTop = 20.dp.toPx()
+                                val paddingRight = 20.dp.toPx()
+
+                                val chartWidth = width - paddingLeft - paddingRight
+                                val chartHeight = height - paddingTop - paddingBottom
+
+                                // Draw horizontal grid lines
+                                val gridSteps = 4
+                                for (i in 0..gridSteps) {
+                                    val yRatio = i.toFloat() / gridSteps
+                                    val yPos = height - paddingBottom - (yRatio * chartHeight)
+                                    drawLine(
+                                        color = chartGridGray,
+                                        start = Offset(paddingLeft, yPos),
+                                        end = Offset(width - paddingRight, yPos),
+                                        strokeWidth = 1.dp.toPx()
+                                    )
+                                }
+
+                                // Target weight line
+                                val targetYRatio = ((targetWeightKg - minWeight) / (maxWeight - minWeight)).coerceIn(0f, 1f)
+                                val targetYPos = height - paddingBottom - (targetYRatio * chartHeight)
+                                drawLine(
+                                    color = targetGreen,
+                                    start = Offset(paddingLeft, targetYPos),
+                                    end = Offset(width - paddingRight, targetYPos),
+                                    strokeWidth = 2.dp.toPx()
                                 )
+
+                                // Plot solid line connecting all user logged weight points
+                                if (logsAsc.isNotEmpty()) {
+                                    val path = androidx.compose.ui.graphics.Path()
+                                    val points = mutableListOf<Offset>()
+
+                                    logsAsc.forEachIndexed { index, log ->
+                                        val xPos = if (logsAsc.size == 1) {
+                                            paddingLeft + chartWidth / 2f
+                                        } else {
+                                            paddingLeft + (index.toFloat() / (logsAsc.size - 1)) * chartWidth
+                                        }
+                                        val wRatio = ((log.weightKg - minWeight) / (maxWeight - minWeight)).coerceIn(0f, 1f)
+                                        val yPos = height - paddingBottom - (wRatio * chartHeight)
+
+                                        val pt = Offset(xPos, yPos)
+                                        points.add(pt)
+                                        if (index == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
+                                    }
+
+                                    // Draw connecting line
+                                    drawPath(
+                                        path = path,
+                                        color = buttonBlue,
+                                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                                    )
+
+                                    // Draw node dots
+                                    points.forEach { pt ->
+                                        drawCircle(
+                                            color = buttonBlue,
+                                            radius = 5.5.dp.toPx(),
+                                            center = pt
+                                        )
+                                        drawCircle(
+                                            color = Color.White,
+                                            radius = 2.5.dp.toPx(),
+                                            center = pt
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Dynamic Y-Axis Labels
+                            val stepVal = (maxWeight - minWeight) / 4f
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(bottom = 28.dp, top = 16.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                (4 downTo 0).forEach { i ->
+                                    val labelVal = (minWeight + i * stepVal).toInt()
+                                    Text(
+                                        text = "$labelVal",
+                                        fontSize = 11.sp,
+                                        color = TextMuted,
+                                        modifier = Modifier.width(36.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -424,24 +430,112 @@ fun WeightTrackerScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
 
-            // Weight Entries List
-            weightEntries.forEach { entry ->
-                WeightEntryRow(
-                    entry = entry,
-                    onClick = {
-                        inputWeightText = entry.weightKg.toInt().toString()
-                        selectedDate = entry.dateTime.toLocalDate()
-                        selectedTime = entry.dateTime.toLocalTime()
-                        isAddWeightDialogOpen = true
-                    }
+            // Weight Entries List from Room DB
+            if (weightLogs.isEmpty()) {
+                Text(
+                    text = "No entries yet. Add your weight above!",
+                    fontSize = 14.sp,
+                    color = TextMuted,
+                    modifier = Modifier.padding(vertical = 12.dp)
                 )
+            } else {
+                weightLogs.forEach { entry ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFF8FAF8))
+                            .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "${"%.1f".format(entry.weightKg)} kg",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = entry.dateString,
+                                fontSize = 13.sp,
+                                color = TextMuted
+                            )
+                        }
+
+                        IconButton(onClick = { onDeleteWeightLog(entry.id) }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Delete weight entry",
+                                tint = TextMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
-    // Add / Edit Weight Entry Dialog (Matching User Reference Screenshot 3)
+    // Edit Target Weight Dialog
+    if (isEditTargetDialogOpen) {
+        Dialog(onDismissRequest = { isEditTargetDialogOpen = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                tonalElevation = 6.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    Text(
+                        text = "Set Target Weight (kg)",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = targetInputText,
+                        onValueChange = { targetInputText = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { isEditTargetDialogOpen = false }) {
+                            Text(text = "Cancel", color = TextMuted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(
+                            onClick = {
+                                val newTarget = targetInputText.toFloatOrNull() ?: 75f
+                                targetWeightKg = newTarget.toInt()
+                                onUpdateTargetWeight(newTarget)
+                                isEditTargetDialogOpen = false
+                            }
+                        ) {
+                            Text(text = "Save", color = buttonBlue, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Add / Edit Weight Entry Dialog
     if (isAddWeightDialogOpen) {
         Dialog(onDismissRequest = { isAddWeightDialogOpen = false }) {
             Surface(
@@ -458,105 +552,95 @@ fun WeightTrackerScreen(
                         .padding(24.dp)
                 ) {
                     Text(
-                        text = "Weight",
-                        fontSize = 13.sp,
-                        color = buttonBlue,
-                        fontWeight = FontWeight.Medium
+                        text = "New Weight",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
                     )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = inputWeightText,
-                            onValueChange = { inputWeightText = it },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            textStyle = androidx.compose.ui.text.TextStyle(
-                                fontSize = 18.sp,
-                                color = TextPrimary
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "kg",
-                            fontSize = 16.sp,
-                            color = TextPrimary,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                    }
-                    HorizontalDivider(color = buttonBlue, thickness = 2.dp)
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Date Selector Field
-                    Text(
-                        text = "Date",
-                        fontSize = 12.sp,
-                        color = TextMuted
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isDatePickerDialogOpen = true }
-                            .padding(vertical = 8.dp)
-                    ) {
-                        val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)
-                        Text(
-                            text = selectedDate.format(dateFormatter),
-                            fontSize = 16.sp,
-                            color = TextPrimary
-                        )
-                    }
-                    HorizontalDivider(color = Color(0xFFD0D0D0), thickness = 1.dp)
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Time Selector Field
-                    Text(
-                        text = "Time",
-                        fontSize = 12.sp,
-                        color = TextMuted
+                    OutlinedTextField(
+                        value = inputWeightText,
+                        onValueChange = { inputWeightText = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text("Weight in kg") },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Box(
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Date Selection Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isDatePickerDialogOpen = true }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "Date", fontSize = 14.sp, color = TextMuted)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.US)),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = "Select Date",
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = CardBorder, thickness = 0.5.dp)
+
+                    // Time Selection Row
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { isTimePickerDialogOfOpen = true }
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
-                        Text(
-                            text = selectedTime.format(timeFormatter),
-                            fontSize = 16.sp,
-                            color = TextPrimary
-                        )
+                        Text(text = "Time", fontSize = 14.sp, color = TextMuted)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm", Locale.US)),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = "Select Time",
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-                    HorizontalDivider(color = Color(0xFFD0D0D0), thickness = 1.dp)
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Action Buttons (Cancel, Save)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.End
                     ) {
                         TextButton(onClick = { isAddWeightDialogOpen = false }) {
-                            Text(text = "Cancel", fontSize = 15.sp, color = buttonBlue, fontWeight = FontWeight.SemiBold)
+                            Text(text = "Cancel", fontSize = 15.sp, color = TextMuted)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         TextButton(
                             onClick = {
-                                val weightVal = inputWeightText.toFloatOrNull() ?: 50f
-                                val newEntry = WeightEntryItem(
-                                    weightKg = weightVal,
-                                    dateTime = LocalDateTime.of(selectedDate, selectedTime)
-                                )
-                                weightEntries.add(0, newEntry)
+                                val weightVal = inputWeightText.toFloatOrNull() ?: 70f
+                                val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.US)
+                                onAddWeightLog(weightVal, selectedDate.format(dateFormatter))
                                 isAddWeightDialogOpen = false
                             }
                         ) {
@@ -568,122 +652,38 @@ fun WeightTrackerScreen(
         }
     }
 
-    // Material 3 Date Picker Dialog (Matching User Reference Screenshots 4 & 5)
+    // Date Picker Dialog for Weight Log
     if (isDatePickerDialogOpen) {
-        var isTextInputMode by remember { mutableStateOf(false) }
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
 
-        if (isTextInputMode) {
-            // Text Input Mode Date Dialog (Matching Screenshot 5)
-            var textDateInput by remember { mutableStateOf("") }
-            Dialog(onDismissRequest = { isDatePickerDialogOpen = false }) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color(0xFFF2F4F8),
-                    tonalElevation = 6.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "Select date", fontSize = 14.sp, color = TextMuted)
-                            IconButton(onClick = { isTextInputMode = false }) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = "Switch to Calendar",
-                                    tint = TextPrimary
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        OutlinedTextField(
-                            value = textDateInput,
-                            onValueChange = { textDateInput = it },
-                            label = { Text("Enter date") },
-                            placeholder = { Text("dd/mm/yyyy") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = buttonBlue,
-                                unfocusedBorderColor = TextMuted
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(onClick = { isDatePickerDialogOpen = false }) {
-                                Text("Cancel", color = buttonBlue)
-                            }
-                            TextButton(onClick = {
-                                // Parse date if format dd/MM/yyyy
-                                try {
-                                    val parts = textDateInput.split("/")
-                                    if (parts.size == 3) {
-                                        val day = parts[0].toInt()
-                                        val month = parts[1].toInt()
-                                        val year = parts[2].toInt()
-                                        selectedDate = LocalDate.of(year, month, day)
-                                    }
-                                } catch (_: Exception) {}
-                                isDatePickerDialogOpen = false
-                            }) {
-                                Text("OK", color = buttonBlue, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            // Calendar Graphical Mode Date Dialog (Matching Screenshot 4)
-            val datePickerState = rememberDatePickerState(
-                initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-            )
-
-            DatePickerDialog(
-                onDismissRequest = { isDatePickerDialogOpen = false },
-                confirmButton = {
-                    TextButton(onClick = {
+        DatePickerDialog(
+            onDismissRequest = { isDatePickerDialogOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneId.systemDefault())
-                                .toLocalDate()
+                            selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
                         }
                         isDatePickerDialogOpen = false
-                    }) {
-                        Text("OK", color = buttonBlue, fontWeight = FontWeight.Bold)
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { isDatePickerDialogOpen = false }) {
-                        Text("Cancel", color = buttonBlue)
-                    }
-                },
-                colors = DatePickerDefaults.colors(containerColor = Color.White)
-            ) {
-                DatePicker(
-                    state = datePickerState,
-                    showModeToggle = true
-                )
+                ) {
+                    Text("OK", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { isDatePickerDialogOpen = false }) {
+                    Text("Cancel")
+                }
             }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 
-    // Material 3 Time Picker Dialog (Matching User Reference Screenshots 2 & 6)
+    // Time Picker Dialog for Weight Log
     if (isTimePickerDialogOfOpen) {
-        var isKeyboardMode by remember { mutableStateOf(false) }
         val timePickerState = rememberTimePickerState(
             initialHour = selectedTime.hour,
             initialMinute = selectedTime.minute,
@@ -692,95 +692,38 @@ fun WeightTrackerScreen(
 
         Dialog(onDismissRequest = { isTimePickerDialogOfOpen = false }) {
             Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = Color(0xFFEEF2F6),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
                 tonalElevation = 6.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
+                modifier = Modifier.padding(16.dp)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
+                    modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = if (isKeyboardMode) "Enter time" else "Select time",
-                        fontSize = 14.sp,
-                        color = TextMuted,
-                        modifier = Modifier
-                            .align(Alignment.Start)
-                            .padding(bottom = 16.dp)
-                    )
-
-                    if (isKeyboardMode) {
-                        TimeInput(state = timePickerState)
-                    } else {
-                        TimePicker(state = timePickerState)
-                    }
-
+                    Text(text = "Select Time", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                     Spacer(modifier = Modifier.height(16.dp))
-
+                    TimePicker(state = timePickerState)
+                    Spacer(modifier = Modifier.height(16.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.End
                     ) {
-                        IconButton(onClick = { isKeyboardMode = !isKeyboardMode }) {
-                            Icon(
-                                imageVector = if (isKeyboardMode) Icons.Default.Schedule else Icons.Default.Keyboard,
-                                contentDescription = "Toggle Input Mode",
-                                tint = TextPrimary
-                            )
+                        TextButton(onClick = { isTimePickerDialogOfOpen = false }) {
+                            Text("Cancel", color = TextMuted)
                         }
-
-                        Row {
-                            TextButton(onClick = { isTimePickerDialogOfOpen = false }) {
-                                Text("Cancel", color = buttonBlue)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            TextButton(onClick = {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(
+                            onClick = {
                                 selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
                                 isTimePickerDialogOfOpen = false
-                            }) {
-                                Text("OK", color = buttonBlue, fontWeight = FontWeight.Bold)
                             }
+                        ) {
+                            Text("OK", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-fun WeightEntryRow(
-    entry: WeightEntryItem,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val formatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy HH:mm", Locale.ENGLISH)
-    val dateString = entry.dateTime.format(formatter)
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 12.dp)
-    ) {
-        Text(
-            text = "${entry.weightKg.toInt()} kg",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = dateString,
-            fontSize = 14.sp,
-            color = TextMuted
-        )
-    }
-    HorizontalDivider(color = Color(0xFFF0F0F0))
 }

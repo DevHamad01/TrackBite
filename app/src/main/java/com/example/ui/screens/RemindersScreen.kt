@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 
@@ -41,7 +42,7 @@ fun RemindersScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonBlue = Color(0xFF2B5B84)
+    val buttonBlue = GreenPrimary
 
     var morningChecked by remember { mutableStateOf(false) }
     var afternoonChecked by remember { mutableStateOf(false) }
@@ -115,7 +116,7 @@ fun ReminderItemRow(
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val buttonBlue = Color(0xFF2B5B84)
+    val buttonBlue = GreenPrimary
 
     Row(
         modifier = Modifier

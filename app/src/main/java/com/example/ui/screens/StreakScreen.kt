@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.UserProfile
 import com.example.ui.theme.CardBorder
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 
@@ -52,8 +53,8 @@ fun StreakScreen(
     onNavigateToWeeklySummary: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonBlue = Color(0xFF2B5B84)
-    val greenAccent = Color(0xFF388E3C)
+    val buttonBlue = GreenPrimary
+    val greenAccent = GreenPrimary
 
     Scaffold(
         topBar = {

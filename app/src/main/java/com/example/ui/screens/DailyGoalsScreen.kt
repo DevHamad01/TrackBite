@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.UserProfile
 import com.example.ui.theme.CardBorder
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 
@@ -143,7 +144,7 @@ fun DailyGoalsScreen(
                 Icon(
                     imageVector = Icons.Default.Calculate,
                     contentDescription = null,
-                    tint = Color(0xFF2B5B84),
+                    tint = GreenPrimary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
@@ -151,7 +152,7 @@ fun DailyGoalsScreen(
                     text = "Use daily calorie goal calculator",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF2B5B84)
+                    color = GreenPrimary
                 )
             }
 

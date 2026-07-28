@@ -21,8 +21,8 @@ object SmartNutritionParser {
         val normalized = prompt.lowercase().trim()
         val items = mutableListOf<FoodItem>()
 
-        // Split prompt by common conjunctions/delimiters like "with", "and", ",", "+", "plus"
-        val rawSegments = normalized.split(Regex("(,|,\\s*|\\s+and\\s+|\\s+with\\s+|\\s*\\+\\s*)"))
+        // Split prompt by line breaks (\n), commas, and common conjunctions like "with", "and", "+", "plus"
+        val rawSegments = prompt.split(Regex("(\r?\n|,|\\s+and\\s+|\\s+with\\s+|\\s*\\+\\s*)"))
 
         for (seg in rawSegments) {
             val segment = seg.trim()
@@ -61,9 +61,12 @@ object SmartNutritionParser {
         val qtyMatch = Regex("^(\\d+)\\s*").find(segment)
         val qty = qtyMatch?.groupValues?.get(1)?.toIntOrNull() ?: 1
 
-        val text = segment.replace(Regex("^\\d+\\s*"), "").trim()
+        val text = segment.replace(Regex("^\\d+\\s*"), "").trim().lowercase()
 
         return when {
+            text.contains("roti") || text.contains("chapati") || text.contains("phulka") -> {
+                FoodItem("Roti", "$qty serving", 150 * qty, 20 * qty, 5 * qty, 4 * qty)
+            }
             text.contains("paratha") || text.contains("parathe") -> {
                 if (text.contains("chicken")) {
                     FoodItem("Chicken Paratha", "$qty paratha", 260 * qty, 28 * qty, 14 * qty, 10 * qty)
@@ -72,6 +75,21 @@ object SmartNutritionParser {
                 } else {
                     FoodItem("Paratha", "$qty paratha", 200 * qty, 30 * qty, 5 * qty, 7 * qty)
                 }
+            }
+            text.contains("arbi") || text.contains("salan") -> {
+                FoodItem("Arbi Ka Salan", "$qty serving", 180 * qty, 15 * qty, 4 * qty, 8 * qty)
+            }
+            text.contains("mango") -> {
+                FoodItem("Mango", "$qty piece", 120 * qty, 28 * qty, 1 * qty, 0 * qty)
+            }
+            text.contains("lassi") -> {
+                FoodItem("Lassi", "$qty glass", 150 * qty, 18 * qty, 4 * qty, 6 * qty)
+            }
+            text.contains("coke") || text.contains("cola") || text.contains("pepsi") || text.contains("soda") -> {
+                FoodItem("Coke Cola", "$qty glass", 140 * qty, 35 * qty, 0 * qty, 0 * qty)
+            }
+            text.contains("nimko") -> {
+                FoodItem("Nimko", "$qty serving", 120 * qty, 12 * qty, 2 * qty, 7 * qty)
             }
             text.contains("daal") || text.contains("dal") || text.contains("lentils") -> {
                 FoodItem("Daal", "$qty plate", 180 * qty, 25 * qty, 12 * qty, 3 * qty)
@@ -127,7 +145,7 @@ object SmartNutritionParser {
                 FoodItem("Cardio Exercise", "$qty session", -150 * qty, 0, 0, 0)
             }
             else -> {
-                val capitalized = segment.replaceFirstChar { it.uppercase() }
+                val capitalized = segment.trim().replaceFirstChar { it.uppercase() }
                 FoodItem(
                     name = capitalized.ifBlank { "Food Item" },
                     serving = "$qty serving",

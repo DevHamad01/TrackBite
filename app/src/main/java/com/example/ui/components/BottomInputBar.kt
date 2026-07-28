@@ -5,8 +5,13 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,14 +27,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,24 +41,22 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.CardBorder
 import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.ui.utils.rememberCameraPermissionLauncher
 
 @Composable
 fun BottomInputBar(
@@ -85,7 +87,7 @@ fun BottomInputBar(
                 }
                 onImageSelected(bitmap)
             } catch (e: Exception) {
-                // handle
+                Toast.makeText(context, "Could not load image", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -97,113 +99,191 @@ fun BottomInputBar(
         bitmap?.let { onImageSelected(it) }
     }
 
+    // Camera Permission launcher
+    val requestCameraPermission = rememberCameraPermissionLauncher(
+        onPermissionGranted = {
+            try {
+                cameraLauncher.launch(null)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Camera error", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    val isTyping = inputText.isNotEmpty() || selectedImageBitmap != null
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.Transparent)
+            .background(Color.White)
             .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        // Input Box Container
+        // Thumbnail Image Preview Chip if photo attached
+        if (selectedImageBitmap != null) {
+            Row(
+                modifier = Modifier
+                    .padding(bottom = 6.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFE8EFE9))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    bitmap = selectedImageBitmap.asImageBitmap(),
+                    contentDescription = "Selected food photo",
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = "Photo attached",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable { onImageSelected(null) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove Photo",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
+        // Bottom Bar Layout: Input Bubble on Left, Action Icons / Send Button on Right
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFFF2F4F2))
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Text Input Field
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = onInputTextChange,
-                placeholder = {
-                    Text(
-                        text = if (selectedImageBitmap != null) "Image attached. Add prompt..." else "What did you eat or exercise?",
-                        fontSize = 15.sp,
-                        color = TextMuted
-                    )
-                },
+            // Seperate Text Input Box (Pill Shape Container)
+            Row(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(vertical = 0.dp),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { onSubmit() }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
-                )
-            )
-
-            // Action Icons inside Input Bar
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFFF2F4F2))
+                    .padding(horizontal = 14.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Saved Entries Icon 🔖
-                IconButton(
-                    onClick = onSavedEntriesClick,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.BookmarkBorder,
-                        contentDescription = "Saved Entries",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(22.dp)
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = onInputTextChange,
+                    placeholder = {
+                        Text(
+                            text = if (selectedImageBitmap != null) "Describe photo or tap send..." else "What did you eat or exercise?",
+                            fontSize = 15.sp,
+                            color = TextMuted,
+                            lineHeight = 20.sp
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = 0.dp),
+                    singleLine = false,
+                    maxLines = 4,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent
                     )
-                }
+                )
 
-                // Gallery Icon 🖼️
-                IconButton(
-                    onClick = { galleryLauncher.launch("image/*") },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Image,
-                        contentDescription = "Upload Gallery Photo",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                // Slim Send Button inside input pill when typing
+                if (isTyping) {
+                    if (isProcessingAi) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(2.dp),
+                            color = GreenPrimary,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF23602D))
+                                .clickable { onSubmit() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
+            }
 
-                // Camera Icon 📷
-                IconButton(
-                    onClick = { cameraLauncher.launch(null) },
-                    modifier = Modifier.size(36.dp)
+            // Outside Action Icons (Bookmark 🔖, Gallery 🖼️, Camera 📷)
+            // Automatically hidden when user starts typing text or attaches photo!
+            AnimatedVisibility(
+                visible = !isTyping,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(start = 6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = "Take Photo",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                // Submit / Mic Icon
-                if (isProcessingAi) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .padding(4.dp),
-                        color = GreenPrimary,
-                        strokeWidth = 2.5.dp
-                    )
-                } else {
+                    // Bookmark / Saved Entries Icon 🔖
                     IconButton(
-                        onClick = onSubmit,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(if (inputText.isNotBlank() || selectedImageBitmap != null) GreenPrimary else Color.Transparent)
+                        onClick = onSavedEntriesClick,
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
-                            imageVector = if (inputText.isNotBlank() || selectedImageBitmap != null) Icons.Default.Send else Icons.Default.Mic,
-                            contentDescription = "Submit or Record",
-                            tint = if (inputText.isNotBlank() || selectedImageBitmap != null) Color.White else TextSecondary,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = Icons.Default.BookmarkBorder,
+                            contentDescription = "Saved Entries",
+                            tint = Color(0xFF333333),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // Gallery Icon 🖼️
+                    IconButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = "Upload Gallery Photo",
+                            tint = Color(0xFF333333),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // Camera Icon 📷
+                    IconButton(
+                        onClick = { requestCameraPermission() },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Take Photo",
+                            tint = Color(0xFF333333),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }

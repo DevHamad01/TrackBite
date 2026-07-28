@@ -24,4 +24,7 @@ interface SavedEntryDao {
 
     @Query("DELETE FROM saved_entries WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM saved_entries")
+    suspend fun deleteAllSavedEntries()
 }

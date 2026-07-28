@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.GreenPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 
@@ -258,7 +259,7 @@ fun NotificationsSettingsScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonBlue = Color(0xFF2B5B84)
+    val buttonBlue = GreenPrimary
     var weeklyReportChecked by remember { mutableStateOf(true) }
 
     Scaffold(
@@ -326,7 +327,7 @@ fun TermsAndPrivacyScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonBlue = Color(0xFF2B5B84)
+    val buttonBlue = GreenPrimary
 
     Scaffold(
         topBar = {
