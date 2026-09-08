@@ -1,7 +1,6 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
-import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
@@ -194,7 +193,6 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     // Logging Input States
     val inputText = MutableStateFlow("")
     val isProcessingAi = MutableStateFlow(false)
-    val selectedImageBitmap = MutableStateFlow<Bitmap?>(null)
     val isRecordingVoice = MutableStateFlow(false)
 
     // Month Grid Filter in Calendar Sheet
@@ -405,14 +403,12 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun processInputAndLog(promptOverride: String? = null) {
         val textToProcess = promptOverride ?: inputText.value.trim()
-        val imageToProcess = selectedImageBitmap.value
-        if (textToProcess.isBlank() && imageToProcess == null) return
+        if (textToProcess.isBlank()) return
 
         val nowTime = timeFormatter.format(Date())
         val promptText = textToProcess.ifBlank { "Scanned Meal" }
 
         inputText.value = ""
-        selectedImageBitmap.value = null
         isProcessingAi.value = true
 
         viewModelScope.launch {
@@ -437,8 +433,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
 
             // Step 2: Analyze meal with Gemini AI
             val result = geminiAiService.processMultiModalInput(
-                prompt = textToProcess,
-                imageBitmap = imageToProcess
+                prompt = textToProcess
             )
 
             // Ensure a minimum delay of 1.8 seconds for natural processing perception
@@ -549,7 +544,7 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
             repository.updateMealEntry(analyzingEntry)
 
             val startTime = System.currentTimeMillis()
-            val result = geminiAiService.processMultiModalInput(prompt = newPrompt, imageBitmap = null)
+            val result = geminiAiService.processMultiModalInput(prompt = newPrompt)
 
             val elapsedTime = System.currentTimeMillis() - startTime
             if (elapsedTime < 1500L) {

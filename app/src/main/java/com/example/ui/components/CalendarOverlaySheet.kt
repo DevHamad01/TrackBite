@@ -49,6 +49,12 @@ sealed class MonthBarEntry {
     data class YearLabel(val year: String) : MonthBarEntry()
 }
 
+data class CalendarDay(
+    val dayNum: String,
+    val dateFormatted: String,
+    val isCurrentMonth: Boolean
+)
+
 @Composable
 fun CalendarOverlaySheet(
     isVisible: Boolean,
@@ -123,47 +129,36 @@ fun CalendarOverlaySheet(
                         .padding(vertical = 3.dp),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    weekRow.forEach { dayNum ->
-                        if (dayNum.isEmpty()) {
-                            Box(modifier = Modifier.size(36.dp))
-                        } else {
-                            val dayInt = dayNum.toIntOrNull() ?: 1
-                            val dateFormatted = "$dayNum $selectedMonthStr $activeYear"
-                            val isFuture = isFutureDate(dayInt, selectedMonthStr, activeYear, todayDateStr)
-                            val isSelected = selectedDateStr == dateFormatted
-                            val hasMeal = loggedDatesSet.contains(dateFormatted)
-                            val isHighlighted = !isFuture && (isSelected || hasMeal)
+                    weekRow.forEach { dayInfo ->
+                        val dayNum = dayInfo.dayNum
+                        val dateFormatted = dayInfo.dateFormatted
+                        val isSelected = selectedDateStr == dateFormatted
+                        val hasMeal = loggedDatesSet.contains(dateFormatted)
+                        val isHighlighted = dayInfo.isCurrentMonth && (isSelected || hasMeal)
 
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isHighlighted) GreenActivePill else Color.Transparent)
-                                    .border(
-                                        width = if (isHighlighted) 1.dp else 0.dp,
-                                        color = if (isSelected) GreenPrimary else if (hasMeal) Color(0xFFC4E5C6) else Color.Transparent,
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    .then(
-                                        if (!isFuture) {
-                                            Modifier.clickable { onDaySelect(dateFormatted) }
-                                        } else {
-                                            Modifier
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = dayNum,
-                                    fontSize = 14.5.sp,
-                                    fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
-                                    color = when {
-                                        isFuture -> TextMuted.copy(alpha = 0.35f)
-                                        isHighlighted -> GreenPrimary
-                                        else -> TextPrimary
-                                    }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isHighlighted) GreenActivePill else Color.Transparent)
+                                .border(
+                                    width = if (isHighlighted) 1.dp else 0.dp,
+                                    color = if (isSelected) GreenPrimary else if (hasMeal) Color(0xFFC4E5C6) else Color.Transparent,
+                                    shape = RoundedCornerShape(12.dp)
                                 )
-                            }
+                                .clickable { onDaySelect(dateFormatted) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = dayNum,
+                                fontSize = 14.5.sp,
+                                fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+                                color = when {
+                                    !dayInfo.isCurrentMonth -> TextMuted.copy(alpha = 0.35f)
+                                    isHighlighted -> GreenPrimary
+                                    else -> TextPrimary
+                                }
+                            )
                         }
                     }
                 }
@@ -249,36 +244,13 @@ fun CalendarOverlaySheet(
     }
 }
 
-private fun isFutureDate(day: Int, monthName: String, year: Int, todayStr: String = "28 Mar 2026"): Boolean {
-    val monthMap = mapOf(
-        "Jan" to 0, "Feb" to 1, "Mar" to 2, "Apr" to 3,
-        "May" to 4, "Jun" to 5, "Jul" to 6, "Aug" to 7,
-        "Sep" to 8, "Oct" to 9, "Nov" to 10, "Dec" to 11
+private fun generateDaysMatrix(monthName: String, year: Int): List<List<CalendarDay>> {
+    val months = listOf(
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     )
-    val curMonthIdx = monthMap[monthName] ?: 0
-
-    val parts = todayStr.split(" ")
-    val todayDay = parts.getOrNull(0)?.toIntOrNull() ?: 28
-    val todayMonthName = parts.getOrNull(1) ?: "Mar"
-    val todayYear = parts.getOrNull(2)?.toIntOrNull() ?: 2026
-    val todayMonthIdx = monthMap[todayMonthName] ?: 2
-
-    if (year > todayYear) return true
-    if (year < todayYear) return false
-
-    if (curMonthIdx > todayMonthIdx) return true
-    if (curMonthIdx < todayMonthIdx) return false
-
-    return day > todayDay
-}
-
-private fun generateDaysMatrix(monthName: String, year: Int): List<List<String>> {
-    val monthMap = mapOf(
-        "Jan" to 0, "Feb" to 1, "Mar" to 2, "Apr" to 3,
-        "May" to 4, "Jun" to 5, "Jul" to 6, "Aug" to 7,
-        "Sep" to 8, "Oct" to 9, "Nov" to 10, "Dec" to 11
-    )
-    val monthIdx = monthMap[monthName] ?: 2
+    val monthIdx = months.indexOf(monthName).takeIf { it >= 0 } ?: 2
+    
     val cal = Calendar.getInstance()
     cal.set(Calendar.YEAR, year)
     cal.set(Calendar.MONTH, monthIdx)
@@ -288,15 +260,29 @@ private fun generateDaysMatrix(monthName: String, year: Int): List<List<String>>
     val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
     val offset = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - 2
 
-    val matrix = mutableListOf<List<String>>()
-    var currentWeek = mutableListOf<String>()
+    // previous month
+    val prevCal = Calendar.getInstance().apply { time = cal.time }
+    prevCal.add(Calendar.MONTH, -1)
+    val prevMaxDays = prevCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+    val prevMonthName = months[prevCal.get(Calendar.MONTH)]
+    val prevYear = prevCal.get(Calendar.YEAR)
 
-    for (i in 0 until offset) {
-        currentWeek.add("")
+    // next month
+    val nextCal = Calendar.getInstance().apply { time = cal.time }
+    nextCal.add(Calendar.MONTH, 1)
+    val nextMonthName = months[nextCal.get(Calendar.MONTH)]
+    val nextYear = nextCal.get(Calendar.YEAR)
+
+    val matrix = mutableListOf<List<CalendarDay>>()
+    var currentWeek = mutableListOf<CalendarDay>()
+
+    for (i in offset - 1 downTo 0) {
+        val d = prevMaxDays - i
+        currentWeek.add(CalendarDay(d.toString(), "$d $prevMonthName $prevYear", false))
     }
 
     for (day in 1..maxDays) {
-        currentWeek.add(day.toString())
+        currentWeek.add(CalendarDay(day.toString(), "$day $monthName $year", true))
         if (currentWeek.size == 7) {
             matrix.add(currentWeek)
             currentWeek = mutableListOf()
@@ -304,8 +290,10 @@ private fun generateDaysMatrix(monthName: String, year: Int): List<List<String>>
     }
 
     if (currentWeek.isNotEmpty()) {
+        var nextDay = 1
         while (currentWeek.size < 7) {
-            currentWeek.add("")
+            currentWeek.add(CalendarDay(nextDay.toString(), "$nextDay $nextMonthName $nextYear", false))
+            nextDay++
         }
         matrix.add(currentWeek)
     }

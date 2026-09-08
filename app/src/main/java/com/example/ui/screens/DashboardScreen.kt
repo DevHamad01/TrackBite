@@ -152,7 +152,6 @@ fun DashboardScreen(
 
     val inputText by viewModel.inputText.collectAsState()
     val isProcessingAi by viewModel.isProcessingAi.collectAsState()
-    val selectedImageBitmap by viewModel.selectedImageBitmap.collectAsState()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -256,15 +255,10 @@ fun DashboardScreen(
                     inputText = inputText,
                     isProcessingAi = isProcessingAi,
                     freeEntriesRemaining = userProfile.freeEntriesRemaining,
-                    selectedImageBitmap = selectedImageBitmap,
                     onInputTextChange = { viewModel.inputText.value = it },
                     onSubmit = { viewModel.processInputAndLog() },
                     onSavedEntriesClick = { viewModel.isSavedEntriesSheetOpen.value = true },
-                    onUpgradeClick = { Toast.makeText(context, "TrackBite Premium unlocked!", Toast.LENGTH_SHORT).show() },
-                    onImageSelected = { bitmap ->
-                        viewModel.selectedImageBitmap.value = bitmap
-                        Toast.makeText(context, "Photo attached! Tap submit to scan with AI.", Toast.LENGTH_SHORT).show()
-                    }
+                    onUpgradeClick = { Toast.makeText(context, "TrackBite Premium unlocked!", Toast.LENGTH_SHORT).show() }
                 )
             },
             containerColor = CleanBackground,
@@ -327,7 +321,7 @@ fun DashboardScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Add your meals or workouts below using text, voice, camera photo, or saved templates to stay on track.",
+                                    text = "Add your meals or workouts below using text or saved templates to stay on track.",
                                     fontSize = 13.sp,
                                     color = TextSecondary,
                                     textAlign = TextAlign.Center

@@ -1,8 +1,6 @@
 package com.example.data.model.ai
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.util.Base64
 import com.example.BuildConfig
 import com.example.data.model.FoodItem
@@ -26,8 +24,7 @@ class GeminiAiService(private val context: Context) {
         .build()
 
     suspend fun processMultiModalInput(
-        prompt: String,
-        imageBitmap: Bitmap? = null
+        prompt: String
     ): SmartNutritionParser.ParsedMealResult = withContext(Dispatchers.IO) {
         val apiKey = try {
             BuildConfig.GEMINI_API_KEY
@@ -57,16 +54,6 @@ class GeminiAiService(private val context: Context) {
 
             val partsArray = JSONArray()
             partsArray.put(JSONObject().put("text", jsonPrompt))
-
-            if (imageBitmap != null) {
-                val stream = ByteArrayOutputStream()
-                imageBitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-                val base64Data = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
-                val inlineDataObj = JSONObject()
-                    .put("mimeType", "image/jpeg")
-                    .put("data", base64Data)
-                partsArray.put(JSONObject().put("inlineData", inlineDataObj))
-            }
 
             val contentsArray = JSONArray()
             contentsArray.put(JSONObject().put("parts", partsArray))
