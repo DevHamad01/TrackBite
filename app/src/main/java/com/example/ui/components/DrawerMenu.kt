@@ -176,14 +176,18 @@ fun DrawerMenu(
                 }
             )
 
-            DrawerMenuItem(
-                icon = Icons.Default.ExitToApp,
-                title = if (isLoggedIn) "Logout" else "Login",
-                onClick = {
-                    onCloseDrawer()
-                    onLogoutClick()
-                }
-            )
+            // Auth flow hidden for now (kept intact to be implemented later)
+            val showAuthFlow = false
+            if (showAuthFlow) {
+                DrawerMenuItem(
+                    icon = Icons.Default.ExitToApp,
+                    title = if (isLoggedIn) "Logout" else "Login",
+                    onClick = {
+                        onCloseDrawer()
+                        onLogoutClick()
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.weight(1f))
 

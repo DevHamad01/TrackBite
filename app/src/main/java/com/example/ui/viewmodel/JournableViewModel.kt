@@ -96,8 +96,8 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     val todayDateStr: String = dateFormatter.format(Date())
     val yesterdayDateStr: String = dateFormatter.format(Date(System.currentTimeMillis() - 86400000L))
 
-    // Auth & Account States
-    val isLoggedIn = MutableStateFlow(false)
+    // Auth & Account States (Auth flow hidden for now)
+    val isLoggedIn = MutableStateFlow(true)
     val userEmail = MutableStateFlow("user@trackbite.com")
 
     // Current Selected Date e.g. "26 Jul 2026"
@@ -165,7 +165,8 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
             initialValue = "Today"
         )
 
-    val currentScreen = MutableStateFlow(AppScreen.LOGIN)
+    // Initial screen set to DASHBOARD (Auth flow hidden for now)
+    val currentScreen = MutableStateFlow(AppScreen.DASHBOARD)
 
     fun updateUserProfileGoals(targetCalories: Int, targetCarbs: Int = 316, targetProtein: Int = 158, targetFat: Int = 71) {
         viewModelScope.launch {
@@ -250,7 +251,8 @@ class JournableViewModel(application: Application) : AndroidViewModel(applicatio
     fun logoutUser() {
         isLoggedIn.value = false
         isDrawerOpen.value = false
-        currentScreen.value = AppScreen.LOGIN
+        // Auth hidden for now, keep user on Dashboard
+        currentScreen.value = AppScreen.DASHBOARD
     }
 
     fun clearAllUserDataAndLogout() {
